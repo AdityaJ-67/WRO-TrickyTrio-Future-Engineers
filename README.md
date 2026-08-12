@@ -33,7 +33,7 @@ one does better.**
 
 | Question | Sensor | Why that one |
 | --- | --- | --- |
-| *Where am I in the lane?* | 5 × VL53L0X laser distance | Measures the walls directly. Immune to lighting, and works at any track width without being told what the width is. |
+| *Where am I in the lane?* | 4 × VL53L0X laser distance | Measures the walls directly. Immune to lighting, and works at any track width without being told what the width is. |
 | *Have I turned a corner?* | TCS34725 colour sensor, facing down | The corners are marked by 20 mm orange and blue lines painted on the floor. A colour read takes about a millisecond and the line under the car is never occluded. |
 | *Which pillar is that, and which side do I pass it?* | Camera Module 3 | The only sensor that can tell red from green at a distance. |
 | *Which way am I pointing?* | BNO085 IMU | The only thing that still means anything mid-corner, when the walls are not a useful lane reference. |
