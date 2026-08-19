@@ -1,7 +1,7 @@
-<h1 align="center">Tricky Trio — WRO 2026 Future Engineers</h1>
+<h1 align="center">Tricky Trio &middot; WRO 2026 Future Engineers</h1>
 
-<!-- TODO: add your country, city and a hero photo of the finished robot here.
-     A single wide photo of the car on the mat reads far better than a logo. -->
+
+<!-- TODO: add a wide hero photo of the finished robot on the mat -->
 
 ---
 
@@ -9,741 +9,808 @@
 
 1. [The Team](#1-the-team)
 2. [The Challenge](#2-the-challenge)
-3. [Repository Structure](#3-repository-structure)
-4. [Design Philosophy](#4-design-philosophy)
-5. [Mobility & Mechanical Design](#5-mobility--mechanical-design)
-6. [Power & Sensor Architecture](#6-power--sensor-architecture)
+3. [Design Philosophy](#3-design-philosophy)
+4. [Components](#4-components)
+5. [Mobility and Mechanical Design](#5-mobility-and-mechanical-design)
+6. [Power and Sensor Architecture](#6-power-and-sensor-architecture)
 7. [Software Architecture](#7-software-architecture)
 8. [Obstacle Strategy](#8-obstacle-strategy)
 9. [Parking Strategy](#9-parking-strategy)
-10. [Systems Thinking: Constraints, Trade-offs and Failures](#10-systems-thinking-constraints-trade-offs-and-failures)
-11. [Testing & Validation](#11-testing--validation)
-12. [Build, Flash and Run](#12-build-flash-and-run)
-13. [Calibration Guide](#13-calibration-guide)
-14. [Engineering Journal](#14-engineering-journal)
-15. [Videos](#15-videos)
-16. [Acknowledgements](#16-acknowledgements)
+10. [Systems Thinking](#10-systems-thinking)
+11. [Testing and Validation](#11-testing-and-validation)
+12. [Engineering Journal](#12-engineering-journal)
+13. [Videos](#13-videos)
+14. [Acknowledgements](#14-acknowledgements)
 
 ---
 
 ## 1. The Team
 
-<!-- TODO: replace with your real details and add t-photos/team.jpg -->
+<!-- TODO: replace the names and add the photos to t-photos/ -->
 
-| | Name | Age | Role | Responsibilities |
-|---|---|---|---|---|
-| <img src="t-photos/member1.jpg" width="90"> | *Name* | *Age* | Software Lead | Vision pipeline, navigation engine, state machine |
-| <img src="t-photos/member2.jpg" width="90"> | *Name* | *Age* | Hardware Lead | Chassis, drivetrain, PCB design, wiring |
-| <img src="t-photos/member3.jpg" width="90"> | *Name* | *Age* | Systems & Testing | Sensor calibration, test protocol, documentation |
+| | Who we are |
+|---|---|
+| <img src="t-photos/member1.jpg" width="120"> | **Name**<br><br>*One short paragraph. Who you are, what you were most interested in on this project, what you took on, and something about you that is not robotics. Judges read this section more carefully than any other, because it is the only part of the repository that is about people rather than parts.* |
+| <img src="t-photos/member2.jpg" width="120"> | **Name**<br><br>*One short paragraph.* |
+| <img src="t-photos/member3.jpg" width="120"> | **Name**<br><br>*One short paragraph.* |
+| <img src="t-photos/coach.jpg" width="120"> | **Name** (Coach)<br><br>*One short paragraph on how the coach supported the team.* |
 
-**Coach:** *Name*  ·  **Country:** *Country*  ·  **Team photos:** [`t-photos/`](t-photos/)
+**Country:** *fill in* &nbsp;&nbsp;&middot;&nbsp;&nbsp; **Team photos:** [`t-photos/`](t-photos/)
 
-> *One paragraph on who you are, how the team formed, and what each person learned.
-> Judges read this — it is the only part of the repository that is about people.*
+### What We Learned
+
+<!-- TODO: write this last, once the robot has run. Three or four paragraphs.
+     Good things to cover:
+       - the hardest problem you solved and how long it took
+       - something you were confident about that turned out to be wrong
+       - a skill each member has now that they did not have at the start
+       - what you would do differently if you started again tomorrow
+     This is where a judge decides whether the engineering process was real. -->
+
+*To be written.*
 
 ---
 
 ## 2. The Challenge
 
 WRO Future Engineers asks for a fully autonomous vehicle that drives three laps of a
-track whose layout is randomised for every round. There are two rounds:
+track whose layout is randomised for every round. There are two rounds plus the
+documentation you are reading now.
 
 | Round | Task | Points |
 |---|---|---|
-| **Open Challenge** | Three laps of an empty track | 30 |
-| **Obstacle Challenge** | Three laps avoiding red and green traffic signs, then park | 62 |
-| **Documentation** | This repository and the engineering journal | 30 |
+| Open Challenge | Three laps of an empty track | 30 |
+| Obstacle Challenge | Three laps avoiding red and green traffic signs, then park | 62 |
+| Documentation | This repository and the engineering journal | 30 |
 | | | **122 total** |
 
 The rules that shaped almost every decision in this project:
 
-- **Red signs must be passed on their right; green signs on their left.** Getting this
+- **Red signs must be passed on their right, green signs on their left.** Getting this
   backwards is worse than not seeing the sign at all.
-- **The track layout is randomised each round.** Nothing can be hard-coded — no
+- **The track layout is randomised each round.** Nothing can be hard coded. No
   memorised turn sequence, no fixed timings.
-- **The parking lot is 20 cm wide and 1.5 × the robot's length.** For our 15 cm car
-  that is a **22.5 cm slot** — 7.5 cm of total slack. This single number drove our
+- **The parking lot is 20 cm wide and 1.5 times the robot's length.** For our 15 cm car
+  that is a 22.5 cm slot, leaving 7.5 cm of total slack. This single number drove our
   decision to keep the chassis as short as possible.
-- **Two buttons only:** one to power on, one to start the program. No other interaction.
+- **Two buttons only.** One to power on, one to start the program. No other interaction
+  is permitted.
 
 ---
 
-## 3. Repository Structure
+## 3. Design Philosophy
 
-```
-├── README.md            This document
-├── src/                 All source code
-│   ├── pi3/             Raspberry Pi 3 — vision, navigation, planning
-│   │   ├── main.py                  Control loop coordinator
-│   │   ├── mission_manager.py       Which challenge is active
-│   │   ├── navigation_engine.py     Steering and speed decisions
-│   │   ├── state_machine.py         Competition behaviour states
-│   │   ├── uart_test_pi.py          Bench tool: UART link test
-│   │   └── camera_vision/
-│   │       └── vision_test.py       Camera detection pipeline
-│   └── pico/            Raspberry Pi Pico 2 W — real-time hardware control
-│       ├── main.py                  Flight program: command in, state out
-│       ├── motionController.py      move(speed, steering) / stop()
-│       ├── servo.py                 MG90S steering
-│       ├── drv8833.py               Drive motor
-│       ├── encoder.py               Wheel odometry
-│       ├── uart_echo.py             Bench tool: UART receive test
-│       ├── deploy.sh                Copy code to the board
-│       └── sensors/
-│           ├── sensorManager.py     One dictionary of every reading
-│           ├── distance.py          4 × VL53L0X via multiplexer
-│           ├── imu.py               BNO085 orientation
-│           └── colour.py            TCS34725 floor colour
-├── schemes/             Wiring diagrams and the master connection list
-├── models/              3D-printable and laser-cut part files
-├── t-photos/            Team photos
-├── v-photos/            Vehicle photos, all six sides
-├── video/               Link to the driving demonstration
-└── other/               Datasheets, engineering journal, test logs
-```
+Three rules we set before writing any code, and kept to.
 
-**4,071 lines of Python** across 16 modules. Every module runs its own self-test on a
-laptop with no hardware attached — see [Testing & Validation](#11-testing--validation).
+**Two brains, split by timing requirement.**
+Linux is not a real time operating system. A filesystem sync or a Wi-Fi interrupt can
+stall a Python loop for tens of milliseconds, which is long enough for a servo to
+jitter or a wheel to spin unchecked. So anything with a deadline runs on the Pico, and
+anything that needs to think runs on the Pi. The cost is a UART link to keep the two in
+sync, which we accepted in exchange for control loops that never get starved by the
+vision stack.
+
+**Every module must be testable without the robot.**
+Hardware is slow to test and easy to break. Every file in this repository has a self
+test that runs on a laptop with nothing plugged in. The MicroPython modules are written
+so that their hardware imports can fail harmlessly off the board, leaving the maths
+importable. This let us debug the steering geometry, the quaternion conversion and the
+entire competition state machine before the chassis existed.
+
+**Decisions live in tables, not in nested conditionals.**
+The whole competition behaviour is one readable table of states and events. A judge, or
+a teammate at two in the morning, can read what the robot does without tracing code
+paths through a tree of if statements.
 
 ---
 
-## 4. Design Philosophy
+## 4. Components
 
-Three rules we set before writing any code, and kept to:
+<!-- TODO for every component below:
+       1. drop a photo into v-photos/ (or other/) and fix the image path
+       2. fill in the specification values
+     Leave a row out rather than guessing a number. -->
 
-**1. Two brains, split by timing requirement.**
-Linux is not a real-time operating system. A filesystem sync or a Wi-Fi interrupt can
-stall a Python loop for tens of milliseconds — long enough for a servo to jitter or a
-wheel to spin unchecked. So anything with a deadline runs on the Pico; anything that
-needs to think runs on the Pi. The cost is a UART link to keep in sync, which we
-accepted in exchange for control loops that never get starved by the vision stack.
+### Raspberry Pi 3 Model B
 
-**2. Every module must be testable without the robot.**
-Hardware is slow to test and easy to break. Every file in this repository has a
-`selftest()` that runs on a laptop. MicroPython modules guard their `machine` imports
-so the maths is importable off-board:
+<img src="v-photos/pi3.jpg" width="220">
 
-```python
-try:
-    from machine import PWM, Pin, UART
-except ImportError:          # laptop: the conversion below is still testable
-    PWM = Pin = UART = None
-```
+Runs the camera, the vision pipeline, the navigation engine and the competition state
+machine. Chosen because computer vision needs an operating system, a filesystem and
+enough RAM to hold video frames, none of which a microcontroller has.
 
-This let us debug the steering geometry, the quaternion conversion and the entire
-state machine before the chassis existed.
+| Specification | Value |
+|---|---|
+| Processor | |
+| RAM | |
+| Operating voltage | |
+| Typical current draw | |
+| Peak current draw | |
+| Operating system | |
 
-**3. Decisions live in tables, not in nested conditionals.**
-The whole competition behaviour is one readable table. A judge — or a teammate at
-2 a.m. — can read what the robot does without tracing code paths.
+### Raspberry Pi Pico 2 W
+
+<img src="v-photos/pico.jpg" width="220">
+
+Runs the motor, the servo, the encoder and all six sensors. Chosen for deterministic
+timing: it does exactly one thing per loop and never pauses to do housekeeping.
+
+| Specification | Value |
+|---|---|
+| Microcontroller | |
+| Clock speed | |
+| Operating voltage | |
+| Logic level | |
+| Typical current draw | |
+| Flash memory | |
+
+### Camera Module 3
+
+<img src="v-photos/camera.jpg" width="220">
+
+The only sensor that can tell red from green, and the only one that sees far enough
+ahead to plan a manoeuvre rather than react to one.
+
+| Specification | Value |
+|---|---|
+| Sensor | |
+| Resolution used | |
+| Frame rate used | |
+| Horizontal field of view | |
+| Mounting height above mat | |
+| Mounting angle | |
+
+### GA12-N20 Gear Motor with Encoder
+
+<img src="v-photos/motor.jpg" width="220">
+
+Single drive motor on the rear axle. The built in encoder was the deciding factor, as
+explained in section 5.
+
+| Specification | Value |
+|---|---|
+| Rated voltage | |
+| No load speed | |
+| Gear ratio | |
+| Stall torque | |
+| Stall current | |
+| Encoder pulses per motor revolution | |
+| Pulses per wheel revolution | |
+
+### MG90S Servo
+
+<img src="v-photos/servo.jpg" width="220">
+
+Steers the front axle through an Ackermann linkage. Metal geared so the gear train
+survives clipping a wall.
+
+| Specification | Value |
+|---|---|
+| Operating voltage | |
+| Stall torque | |
+| Operating speed | |
+| Gear material | |
+| Pulse width range used | |
+| Steering range achieved | |
+
+### DRV8833 Motor Driver
+
+<img src="v-photos/drv8833.jpg" width="220">
+
+Dual H bridge driving the single motor. Chosen over the larger L298N for its smaller
+footprint and much better efficiency at low voltage.
+
+| Specification | Value |
+|---|---|
+| Motor supply voltage range | |
+| Continuous current per channel | |
+| Peak current per channel | |
+| PWM frequency used | |
+| Logic voltage | |
+
+### VL53L0X Time of Flight Sensor
+
+<img src="v-photos/vl53l0x.jpg" width="220">
+
+Four of these, at 0 degrees, plus and minus 45 degrees, and 180 degrees. Placement
+reasoning is in section 6.
+
+| Specification | Value |
+|---|---|
+| Measuring range | |
+| Accuracy | |
+| Field of view | |
+| Measurement time (timing budget) | |
+| Operating voltage | |
+| I2C address | |
+
+### TCA9548A I2C Multiplexer
+
+<img src="v-photos/tca9548a.jpg" width="220">
+
+Lets six devices that share the same I2C address coexist on one bus. Without it the
+four distance sensors and the colour sensor cannot be used together.
+
+| Specification | Value |
+|---|---|
+| Number of channels | |
+| Operating voltage | |
+| I2C address | |
+| Bus speed used | |
+
+### BNO085 IMU
+
+<img src="v-photos/bno085.jpg" width="220">
+
+Provides heading, which is what tells us a 90 degree turn is complete. Runs sensor
+fusion on its own processor rather than handing us raw accelerometer and gyroscope
+values to filter ourselves.
+
+| Specification | Value |
+|---|---|
+| Sensors on board | |
+| Output report used | |
+| Update rate | |
+| Heading accuracy | |
+| Operating voltage | |
+| I2C address | |
+
+### TCS34725 Colour Sensor
+
+<img src="v-photos/tcs34725.jpg" width="220">
+
+Reads the mat directly below the car. Its built in infrared filter is why it stays
+stable while four infrared distance sensors are firing beside it.
+
+| Specification | Value |
+|---|---|
+| Output channels | |
+| Integration time used | |
+| Gain used | |
+| Mounting height above mat | |
+| Operating voltage | |
+| I2C address | |
+
+### Mini560 Buck Converter
+
+<img src="v-photos/mini560.jpg" width="220">
+
+Steps the battery down to the 5 V rail that feeds the Pi, the Pico and the servo.
+
+| Specification | Value |
+|---|---|
+| Input voltage range | |
+| Output voltage | |
+| Continuous output current | |
+| Peak output current | |
+| Efficiency | |
+
+### Battery
+
+<img src="v-photos/battery.jpg" width="220">
+
+| Specification | Value |
+|---|---|
+| Chemistry | |
+| Nominal voltage | |
+| Capacity | |
+| Maximum discharge current | |
+| Mass | |
+| Measured run time | |
+
+### Chassis and Wheels
+
+<img src="v-photos/chassis.jpg" width="220">
+
+| Specification | Value |
+|---|---|
+| Overall length | 15.0 cm |
+| Overall width | 10.5 cm |
+| Overall height | |
+| Total mass | |
+| Wheel diameter | |
+| Wheelbase | |
+| Track width | |
+| Ground clearance | |
+| Turning radius | |
 
 ---
 
-## 5. Mobility & Mechanical Design
-
-<!-- TODO: photos of the chassis, drivetrain and steering linkage go here.
-     Add v-photos/ images and reference them. -->
+## 5. Mobility and Mechanical Design
 
 ### Chassis
 
 | Property | Value | Why |
 |---|---|---|
-| Length | **15.0 cm** | Parking slot is 1.5 × length = 22.5 cm. Every centimetre of car costs 1.5 cm of slot, so short is safe. |
-| Width | **10.5 cm** | Lane is 100 cm wide; narrow enough to pass a sign with margin either side. |
-| Drive | Single motor, rear axle | Rule 11.3/11.5 require the drive wheels to be physically connected. One motor through a gearbox satisfies this and removes differential-speed error. |
-| Steering | Ackermann, front axle, single servo | Required by the category focus on non-differential kinematics. |
+| Length | 15.0 cm | The parking slot is 1.5 times the robot length, so every centimetre of car costs 1.5 cm of slot. Short is safe. |
+| Width | 10.5 cm | The lane is 100 cm wide. Narrow enough to pass a sign with margin either side. |
+| Drive | Single motor, rear axle | Rules 11.3 and 11.5 require the drive wheels to be physically connected. One motor through a gearbox satisfies this and removes differential speed error. |
+| Steering | Ackermann, front axle, one servo | Required by the category focus on kinematics other than differential drive. |
 
-### Drive Motor — GA12-N20
+### Why This Motor
 
-Chosen for three reasons, in order of weight:
+The GA12-N20 was chosen for three reasons, in order of weight.
 
-1. **Built-in encoder.** The deciding factor. It lets us measure actual wheel rotation
-   instead of assuming PWM duty maps to speed. Without odometry we cannot detect a
-   stalled robot, and stall detection is what triggers our recovery behaviour.
-2. **Integrated gearbox** in a package small enough for a 15 cm chassis.
-3. **6 V operation** matching the rest of the low-voltage system.
+**The built in encoder was the deciding factor.** It lets us measure actual wheel
+rotation instead of assuming that PWM duty maps cleanly to speed. Without odometry we
+cannot detect a stalled robot, and stall detection is what triggers our recovery
+behaviour. A robot that is wedged against a wall and does not know it will sit there
+until the round ends.
 
-**Torque and speed reasoning.** Theoretical top speed follows `v = πDN / 60` where D is
-wheel diameter and N is motor RPM at the output shaft. For our 33 mm wheel at
-300 RPM this gives ≈ 0.52 m/s. That number ignores load, rolling resistance and
-battery sag, so we treat it as a ceiling, not a target.
+Second, the integrated gearbox fits a package small enough for a 15 cm chassis. Third,
+it runs at 6 V, matching the rest of the low voltage system.
 
-<!-- TODO: fill in after bench testing. Do NOT estimate these.
+**Torque and speed reasoning.** Theoretical top speed follows the relation between
+wheel circumference and output shaft revolutions per minute. For our wheel and motor
+this gives a ceiling of roughly 0.5 m/s. That figure ignores load, rolling resistance
+and battery sag, so we treat it as an upper bound rather than a target, and tune the
+operating speed experimentally instead.
+
+<!-- TODO: measure these on the bench and fill them in. Do not estimate.
 | Measurement | Value |
 |---|---|
-| Measured top speed, unloaded | ___ m/s |
-| Measured top speed, on the mat | ___ m/s |
-| Minimum PWM that actually moves the robot | ___ % |
-| Time to travel 1 m from standstill | ___ s |
+| Measured top speed, wheels off the ground | |
+| Measured top speed, on the mat | |
+| Lowest PWM percentage that actually moves the robot | |
+| Time to travel 1 m from standstill | |
+| Measured turning radius at full lock | |
 -->
 
-**Why not two motors, one per side?** Explicitly forbidden by rule 11.5, and it would
-have introduced differential error that our single-encoder odometry cannot see.
+**Why not two motors, one per side?** Explicitly forbidden by rule 11.5. It would also
+have introduced differential error that our single encoder cannot see.
 
-### Steering — MG90S
+### Steering
 
-<!-- TODO: photo of the steering linkage -->
+The servo angle is converted to a pulse width from a calibrated centre position, with
+three deliberate safety features.
 
-Metal-geared, so the gear train survives the shock of clipping a wall — the failure
-mode that kills plastic-geared servos. Driven at 50 Hz with a pulse width computed
-from a calibrated centre:
+The centre position is calibrated per build, because no two linkages are neutral at the
+same pulse width. A direction constant flips the sign if the servo is mounted mirrored,
+so mounting errors are fixed with a constant rather than by negating at the call site,
+and the sign convention stays identical on both controllers. Most importantly, the
+angle is clamped to plus or minus 30 degrees before conversion, and the resulting pulse
+is clamped again to a safe range. A runaway command therefore cannot drive the servo
+into the steering linkage and stall it. A stalled MG90S draws over an amp and destroys
+its own gears in about a minute.
 
-```python
-pulse_us = CENTRE_US + angle * US_PER_DEGREE * STEER_DIRECTION
-```
-
-Three deliberate safety features in that one line:
-
-- `CENTRE_US` is calibrated per build, because no two linkages are neutral at 1500 µs.
-- `STEER_DIRECTION` flips the sign if the servo is mounted mirrored — we fix mounting
-  errors with a constant, never by negating at the call site, so the sign convention
-  stays identical on both boards.
-- The angle is clamped to ±30° **before** conversion, and the resulting pulse is clamped
-  again to 1000–2000 µs. A runaway command therefore cannot drive the servo into the
-  steering linkage and stall it. A stalled MG90S draws over an amp and destroys its own
-  gears in about a minute.
-
-**Iteration:** our first version clamped only the pulse width. Clamping the angle first
+**Iteration.** Our first version clamped only the pulse width. Clamping the angle first
 means the reported steering angle and the physical angle always agree, which matters
-because the state machine logs the commanded angle for debugging.
+because the state machine logs the commanded angle when something goes wrong.
 
 ---
 
-## 6. Power & Sensor Architecture
+## 6. Power and Sensor Architecture
 
-**Wiring diagrams:** [`schemes/`](schemes/) — see [`schemes/README.md`](schemes/README.md)
-for the complete master connection list, and `circuit_image.svg` for the schematic.
+Wiring diagrams are in [`schemes/`](schemes/), with the complete master connection list
+in [`schemes/README.md`](schemes/README.md).
 
 ### Power Budget
 
 | Consumer | Typical | Peak | Notes |
 |---|---|---|---|
 | Raspberry Pi 3 | ~700 mA | ~2.5 A | Peaks during vision processing |
-| MG90S servo | ~200 mA | ~1.5 A | Peak at stall / full lock |
+| MG90S servo | ~200 mA | ~1.5 A | Peak at stall or full lock |
 | GA12-N20 motor | ~150 mA | ~800 mA | Peak at stall |
-| Pico 2 W + sensors | ~150 mA | ~200 mA | 6 I²C devices on 3V3 |
+| Pico 2 W and sensors | ~150 mA | ~200 mA | Six I2C devices on the 3.3 V rail |
 | **Total** | **~1.2 A** | **~5 A** | |
 
-A single Mini560 buck converter feeds the 5 V rail. The peak figure is what matters:
-the Pi browns out and reboots if the rail sags, and it sags exactly when the servo
-slams to full lock — which is precisely when the robot is doing something difficult.
-Mitigation: a 100 µF electrolytic across the DRV8833's VM/GND at the driver, and a
-0.1 µF ceramic across the motor terminals.
+The peak figure is the one that matters. The Pi browns out and reboots if the 5 V rail
+sags, and it sags exactly when the servo slams to full lock, which is precisely when
+the robot is doing something difficult. Our mitigations are a 100 uF electrolytic
+capacitor across the motor driver's supply pins at the driver itself, and a 0.1 uF
+ceramic capacitor across the motor terminals to suppress brush noise.
 
-### The 3.3 V / 5 V Boundary — A Fault We Caught in Review
+### A Fault We Caught in Review
 
-Our first connection list put the **N20 encoder on the 5 V rail**. An N20 magnetic
-encoder outputs at whatever voltage supplies it, so its A/B channels would have swung
-to 5 V straight into GP12/GP13. **The RP2350 is not 5 V tolerant** (absolute maximum
-3.3 V + 0.3 V). This would have worked on the bench and killed the microcontroller
-days or weeks later — the worst kind of fault, because it looks like a software bug.
+Our first connection list put the encoder on the 5 V rail. An N20 magnetic encoder
+outputs at whatever voltage supplies it, so its two channels would have swung to 5 V
+straight into microcontroller pins rated for 3.3 V. **The RP2350 is not 5 V tolerant.**
+This would have worked on the bench and destroyed the microcontroller days or weeks
+later, which is the worst kind of fault because it looks exactly like a software bug.
 
-The encoder now runs from the Pico's 3V3 rail alongside the I²C sensors. It draws a
-few milliamps. **Lesson recorded in our journal: trace the logic-level path of every
-sensor output, not just its supply.**
+The encoder now runs from the Pico's 3.3 V rail alongside the I2C sensors, where it
+draws a few milliamps. The lesson we recorded in our journal was to trace the logic
+level path of every sensor output, not just its supply voltage.
 
-### Sensor Selection and Placement
+### Sensor Placement
 
-<!-- TODO: a top-down diagram showing sensor positions and angles. This is the single
-     highest-value diagram in the repository for Criterion 2. -->
+<!-- TODO: add a top down diagram showing sensor positions and angles.
+     This is the single highest value image in the repository. -->
 
-| Sensor | Qty | Placement | Why here |
+| Sensor | Quantity | Placement | Why here |
 |---|---|---|---|
-| Pi Camera Module 3 | 1 | Front, elevated | Height gives earlier sight of signs; the only sensor that can tell red from green |
-| VL53L0X ToF | 1 | Front, 0° | Corner confirmation and collision avoidance |
-| VL53L0X ToF | 2 | **±45°**, flanking the camera | Lane position and corner geometry |
-| VL53L0X ToF | 1 | Rear, 180° | Parking and reversing clearance |
-| BNO085 IMU | 1 | Centre, flat | Heading for turn completion and straight-line hold |
-| TCS34725 | 1 | Underside, 5–10 mm above mat | Corner line detection |
+| Camera Module 3 | 1 | Front, elevated | Height gives earlier sight of signs, and it is the only sensor that distinguishes colour |
+| VL53L0X | 1 | Front, 0 degrees | Corner confirmation and collision avoidance |
+| VL53L0X | 2 | Plus and minus 45 degrees, flanking the camera | Lane position and corner geometry |
+| VL53L0X | 1 | Rear, 180 degrees | Parking and reversing clearance |
+| BNO085 | 1 | Centre, mounted flat | Heading for turn completion and straight line hold |
+| TCS34725 | 1 | Underside, 5 to 10 mm above the mat | Corner line detection |
 
-**Why ±45° and not 90°?** This is the placement decision we spent longest on. Sensors
-pointing straight out to the sides tell you the lane width but see a corner only once
-you are level with it — too late to plan a turn. At 45° they see the forward diagonals,
-so an approaching inner wall shows up while there is still room to react. The cost is
-that a reading of D millimetres is **not** lateral clearance; it is D·cos45 ≈ 0.71·D
-ahead and the same to the side. That conversion is documented at the top of
-[`distance.py`](src/pico/sensors/distance.py) because anything that treats a diagonal
-reading as lateral clearance will drive into a wall.
+**Why 45 degrees and not 90?** This is the placement decision we spent longest on.
+Sensors pointing straight out to the sides tell you the lane width, but they only see a
+corner once you are already level with it, which is too late to plan a turn. At 45
+degrees they watch the forward diagonals, so an approaching inner wall shows up while
+there is still room to react.
 
-Lane position falls out of comparing the two diagonals, with no need to know the lane
-width at all:
+The cost of that choice is that a reading is no longer lateral clearance. A reading of
+D millimetres at 45 degrees means roughly 0.71 times D ahead and the same again to the
+side. That conversion is documented at the top of the distance module, because anything
+that treats a diagonal reading as lateral clearance will drive the robot into a wall.
 
-```python
-offset = (right_mm - left_mm) / (right_mm + left_mm)   # +1 hard right, -1 hard left
-```
+Lane position then falls out of comparing the two diagonals against each other, which
+needs no knowledge of the lane width at all. More room on the right means the car has
+drifted left, so it steers right.
 
-**Failure-point consideration:** a VL53L0X reports ≈ 8190 mm when it sees nothing. Fed
-into that formula this looks like an enormously wide lane. Readings above 2000 mm are
-therefore discarded rather than believed.
+**A failure point we designed around.** A VL53L0X reports roughly 8190 mm when it sees
+nothing at all. Fed into that comparison this looks like an enormously wide lane, so
+readings above 2000 mm are discarded rather than believed.
 
 ### Why a Multiplexer
 
-Every VL53L0X ships with the same fixed I²C address, **0x29** — and so does the
-TCS34725. Two on one bus and both answer at once; nothing in software can separate
-them. There are two ways out: pulse each sensor's XSHUT pin at boot to bring them up
-one at a time and reassign addresses, or switch the bus. We chose the **TCA9548A
-multiplexer** because it needs no extra GPIO per sensor and no boot-time sequencing
-that can fail silently.
+Every VL53L0X ships with the same fixed I2C address, and so does the colour sensor. Put
+two on one bus and both answer at once, and nothing in software can separate them.
 
-| TCA channel | Device |
+There are two ways out. One is to pulse each sensor's shutdown pin at boot to bring
+them up one at a time and reassign addresses. The other is to switch the bus. We chose
+the TCA9548A multiplexer because it needs no extra GPIO pin per sensor and no boot time
+sequencing that can fail silently.
+
+| Multiplexer channel | Device |
 |---|---|
 | 0 | VL53L0X front |
 | 1 | TCS34725 colour |
 | 2 | BNO085 IMU |
-| 3 / 4 / 5 | VL53L0X left / right / rear |
+| 3 | VL53L0X left |
+| 4 | VL53L0X right |
+| 5 | VL53L0X rear |
 
-The cost is that reads are sequential: switch channel, talk, switch, talk. A full sweep
-of four ToF sensors costs ≈ 132 ms, which is why the Pico's loop applies commands every
-20 ms but sweeps sensors only every 150 ms. A naive loop would have delayed every motor
-command by the length of a sensor sweep.
+The cost is that reads are sequential: switch channel, talk, switch channel, talk. A
+full sweep of four distance sensors costs about 132 ms, which is why the Pico applies
+commands every 20 ms but sweeps sensors only every 150 ms. A single speed loop would
+have delayed every motor command by the length of a sensor sweep.
 
 ---
 
 ## 7. Software Architecture
 
-### The Loop
-
 ```
-   ┌──────────────── Raspberry Pi 3 ────────────────┐   ┌──── Pico 2 W ────┐
-   │                                                │   │                  │
-   │  camera ─► vision ─► pillars, wall, slot ──┐   │   │  motionController│
-   │                                            ▼   │   │    ├─ servo      │
-   │  robot_state ─► mission ─► navigation ─────┐   │   │    └─ drv8833    │
-   │                            (HOW to drive)  ▼   │   │                  │
-   │                          state machine ────────┼───┼─► "45,23\n"      │
-   │                          (WHAT we are doing)   │   │                  │
-   │                                                │   │  sensorManager   │
-   │  robot_state ◄─────────────────────────────────┼───┼── "S,480,230,…"  │
-   └────────────────────────────────────────────────┘   └──────────────────┘
+   +---------------- Raspberry Pi 3 ----------------+   +---- Pico 2 W ----+
+   |                                                |   |                  |
+   |  camera --> vision --> signs, wall, slot --+   |   |  motionController|
+   |                                            |   |   |    servo         |
+   |  robot_state --> mission --> navigation ---+   |   |    motor driver  |
+   |                             (HOW to drive) |   |   |                  |
+   |                          state machine ----+---+---+--> "45,23"       |
+   |                          (WHAT we are doing)   |   |                  |
+   |                                                |   |  sensorManager   |
+   |  robot_state <---------------------------------+---+-- "S,480,230..." |
+   +------------------------------------------------+   +------------------+
 ```
 
-Each frame, in this exact order:
+Each frame runs these seven steps, in this exact order.
 
-| # | Step | Module |
+| Step | What happens | Module |
 |---|---|---|
 | 1 | Capture a frame | `main.py` |
 | 2 | Detect signs, wall and parking markers | `vision_test.py` |
 | 3 | Read the newest robot state from the Pico | `main.py` |
 | 4 | Ask which challenge is active | `mission_manager.py` |
-| 5 | Decide **how** to drive — speed and steering | `navigation_engine.py` |
-| 6 | Decide **what** we are doing — and restrain the command | `state_machine.py` |
+| 5 | Decide **how** to drive, meaning speed and steering | `navigation_engine.py` |
+| 6 | Decide **what** we are doing, and restrain the command | `state_machine.py` |
 | 7 | Send the final command over UART | `main.py` |
 
-**The separation that makes this work:** navigation decides *how*, the state machine
-decides *what*. The state machine may only **restrain** navigation's request, never
-invent one:
+**The separation that makes this work.** Navigation decides how to drive. The state
+machine decides what we are doing, and it may only restrain navigation's request, never
+invent one of its own. Cornering caps the speed lower than the straights. Recovery
+caps it lower still. Finishing caps it to zero. Approaching a sign caps nothing,
+because avoiding a sign is precisely navigation's job and clipping its request would
+make the robot worse at it.
 
-```python
-STATE_SPEED_CAP = {
-    State.FOLLOW_COURSE: None,      # take whatever navigation asked for
-    State.APPROACH_PILLAR: None,    # avoiding IS navigation's job
-    State.TURN_CORNER: 35,          # corners are tighter than the straights
-    State.RECOVERY: 30,             # crawl while working out where we are
-    State.FINISHED: 0,
-}
-```
-
-Only `main.py` may write to the serial port, and it writes only the state machine's
-output — so there is exactly one place a command can reach the wheels.
+Only the coordinator writes to the serial port, and it writes only the state machine's
+output, so there is exactly one place in the whole system where a command can reach the
+wheels.
 
 ### The State Machine
 
-**12 states · 17 events · 30 transitions · 3 missions.**
+**Twelve states, seventeen events, thirty transitions, three missions.**
 
-The critical design choice: **detecting** what happened is separate from **deciding**
-what to do about it. `detect_events()` is the only function that knows about
-millimetres and degrees; the transition table knows about behaviour and contains no
-numbers at all.
+The critical design choice is that detecting what happened is separate from deciding
+what to do about it. One function turns sensor readings into named events, and it is
+the only place that knows about millimetres and degrees. A separate table maps each
+state and event to the next state, and that table contains no numbers at all.
 
-```python
-State.FOLLOW_COURSE: (
-    (Event.RUN_COMPLETE,      State.SEARCH_PARKING),
-    (Event.RECOVERY_REQUIRED, State.RECOVERY),
-    (Event.CORNER_DETECTED,   State.TURN_CORNER),     # a wall beats a sign
-    (Event.RED_PILLAR,        State.APPROACH_PILLAR),
-    (Event.GREEN_PILLAR,      State.APPROACH_PILLAR),
-),
-```
+Row order within the table is priority. When a wall and a sign are both visible, the
+wall wins, and that is a line a judge can point at rather than a consequence of which
+if statement happened to come first.
 
-Row order is priority — "a wall beats a sign" is a line you can point at, not an
-emergent consequence of which `if` came first. When we improve corner detection, we
-change how `CORNER_DETECTED` is produced and the behaviour table never learns that
-anything changed.
+Events fire whenever they are true, regardless of the current state, and the table
+decides which ones matter. In the Open Challenge the robot still sees a red sign, and
+the event appears in its debug output, but it is correctly ignored because that mission
+has no sign handling state at all.
 
-Events fire whenever they are true, regardless of state; the table decides which
-matter. In the Open Challenge the robot still *sees* a red sign — `RED_PILLAR` appears
-in the event list — and correctly ignores it, because that mission has no
-`APPROACH_PILLAR` state.
-
-**States:** `WAIT_FOR_START · INITIALISE · FOLLOW_COURSE · APPROACH_PILLAR ·
-PASS_PILLAR · RECENTER · TURN_CORNER · SEARCH_PARKING · ALIGN_PARKING ·
-ENTER_PARKING · RECOVERY · FINISHED`
+States: `WAIT_FOR_START`, `INITIALISE`, `FOLLOW_COURSE`, `APPROACH_PILLAR`,
+`PASS_PILLAR`, `RECENTER`, `TURN_CORNER`, `SEARCH_PARKING`, `ALIGN_PARKING`,
+`ENTER_PARKING`, `RECOVERY`, `FINISHED`.
 
 ### Vision Pipeline
 
-Cost per frame is **O(N)** in pixels and **O(C)** in contours, and N is fixed by the
-processing width rather than the camera resolution. The pipeline measures **0.32 ms
-per frame** on a development laptop, so the camera's frame rate is the ceiling, not
-the code.
+Cost per frame is linear in the number of pixels and linear in the number of contours
+found, and the pixel count is fixed by the processing width rather than the camera
+resolution. The pipeline measures 0.32 ms per frame on a development laptop, which
+means the camera frame rate is the ceiling rather than the code.
 
 | Stage | Detail |
 |---|---|
-| ROI crop | Top 35 % discarded — only ceiling and lights live up there |
-| Downscale | Detection runs at 320 px wide; drawing stays full resolution |
-| HSV threshold | Red needs two ranges because hue wraps at 0 |
-| Morphology | Open to kill speckle, close to fill glare holes |
-| Contour filter | Area, aspect ratio **and fill ratio** |
+| Region of interest | Top 35 percent discarded, since only ceiling and lights live up there |
+| Downscale | Detection runs at 320 pixels wide, drawing stays at full resolution |
+| Colour threshold | Red needs two hue ranges because hue wraps around zero |
+| Morphology | Open to remove speckle, close to fill glare holes |
+| Contour filter | Area, aspect ratio and fill ratio together |
 
-**Why fill ratio matters.** Largest-contour-wins locks onto a red jacket in the
-audience or a stripe of glare on the mat. A real traffic sign fills its bounding box;
-scattered reflections do not. A candidate must pass area **and** aspect ratio
-(0.15–2.00, signs are taller than wide) **and** fill ratio (> 0.45) before it is
-believed. Our self-test includes a wide red stripe with the largest area in the frame
-and asserts the detector skips it in favour of the actual sign.
+**Why the fill ratio matters.** Taking the largest contour locks onto a red jacket in
+the audience or a stripe of glare on the mat. A real traffic sign fills its bounding
+box, and scattered reflections do not. A candidate must pass area, aspect ratio and
+fill ratio before it is believed. Our self test deliberately includes a wide red stripe
+with the largest area in the frame and asserts that the detector skips it in favour of
+the actual sign.
 
-**Distance from pixel height.** Signs are a known 10 cm tall, so
-`distance = real_height × focal_px / pixel_height`. This gives us range from a single
-camera with no stereo rig.
+**Distance from a single camera.** Signs are a known 10 cm tall, so the ratio of real
+height to pixel height gives range without a stereo rig.
 
-**Saturation and value floors are deliberately low** (S ≥ 90, V ≥ 40 for red). Our
-first version used S ≥ 110, V ≥ 70 and worked perfectly with one sign — then silently
-dropped the second one whenever it sat further from the lights. Two signs on a mat are
-never lit equally.
+**Saturation and brightness floors are deliberately low.** Our first version used much
+higher floors and worked perfectly with one sign, then silently dropped the second one
+whenever it sat further from the lights. Two signs on a mat are never lit equally.
 
 ---
 
 ## 8. Obstacle Strategy
 
-Red on the right, green on the left. The elegant part is that this is **one line**, not
-a tree of cases:
+Red on the right, green on the left. The elegant part is that this is one calculation
+rather than a tree of cases.
 
-```python
-PASS_TARGET = {COLOUR_RED: -0.5, COLOUR_GREEN: +0.5}
-steering = (offset - PASS_TARGET[colour]) * STEERING_GAIN
-```
+Each colour is given a target position in the camera frame. Passing a red sign on its
+right means the sign has to end up on the robot's left, so the target for red is a
+position well to the left of centre, and green is the mirror image. The robot then
+steers by however far the sign currently is from where it should be.
 
-Each colour has a **target position in the frame**. Passing a red sign on its right
-means the sign ends up on your left — so you want it at −0.5, and you steer by however
-far it is from there. Green mirrors it.
+That single rule produces all of the behaviour below, with no special cases.
 
-The behaviour this produces, without a single special case:
+| Red sign position in frame | Steering response |
+|---|---|
+| Far left | None, already clear |
+| Just left of centre | None, just cleared |
+| Centred | Firm right |
+| Right of centre | Harder right |
+| Far right | Full lock right, the worst case |
 
-| Red sign at | Frame offset | Steering |
-|---|---|---|
-| Far left | −0.91 | **0°** — already clear |
-| Left of centre | −0.53 | 0° — just cleared |
-| **Centred** | **0.00** | **+15°** |
-| Right of centre | +0.30 | +24° |
-| Far right | +0.56 | +30° — worst case, hard over |
-
-One safety clamp: a red sign may only ever produce right steering. Without it, a sign
-already cleared to the left would produce a small correction back *toward* the thing
-you just avoided — which is how you clip one.
+One safety clamp is applied on top: a red sign may only ever produce right steering.
+Without it, a sign already cleared to the left would produce a small correction back
+towards the thing the robot just avoided, which is how you clip one.
 
 ### Choosing Between Two Signs
 
-Both colours are often visible at once — a red one close and a green one further down
-the track. The **nearer** sign is the one about to be hit, so that is the one we steer
-around; the far one is handled on later frames once it becomes the near one.
+Both colours are often visible at once, typically a red one close and a green one
+further down the track. The nearer sign is the one about to be hit, so that is the one
+the robot steers around. The far one is handled on later frames, once it becomes the
+near one. Where the vision module has measured a distance we rank by that. Where it has
+not, we fall back to apparent size, since a nearer sign of the same real size looks
+bigger.
 
-```python
-if all(p.get("distance") is not None for p in candidates):
-    return min(candidates, key=lambda p: p["distance"])
-return max(candidates, key=lambda p: p["area"])     # fallback: bigger is nearer
-```
+### The Four Phase Pass
 
-### The Four-Phase Pass
+The robot moves through `FOLLOW_COURSE`, then `APPROACH_PILLAR`, then `PASS_PILLAR`,
+then `RECENTER`, and back to `FOLLOW_COURSE`.
 
-`FOLLOW_COURSE → APPROACH_PILLAR → PASS_PILLAR → RECENTER → FOLLOW_COURSE`
-
-**`RECENTER` is the phase that stops the robot living permanently offset.** Our first
+**The recentre phase is what stops the robot living permanently offset.** Our first
 implementation steered around a sign and simply carried on, drifting a little further
-from the lane centre with each obstacle until it clipped a wall three signs later.
-Now, once the sign has been out of view for 0.5 s, steering ignores signs entirely and
-tracks the lane centre until the offset is inside a dead zone.
+from the lane centre with each obstacle until it clipped a wall three signs later. Now,
+once the sign has been out of view for half a second, steering ignores signs entirely
+and tracks the lane centre until the offset is back inside a dead zone.
 
-Note the deliberate asymmetry: `PASS_PILLAR` has **no** route to `RECOVERY`. Losing
-sight of a sign you are squeezing past is exactly what success looks like, so both
-exits lead to recentring.
+There is a deliberate asymmetry worth noting. The passing phase has no route into
+recovery. Losing sight of a sign you are squeezing past is exactly what success looks
+like, so both of its exits lead to recentring instead.
 
 ### Edge Cases We Handle
 
 | Case | Handling |
 |---|---|
-| Sign flickers out for one frame | 0.5 s confirmation before the pass is declared over |
-| Two signs in view | Nearest by measured distance wins; frame order is irrelevant |
-| Sign appears mid-corner | Corner outranks sign — the table row order says so |
-| Sign smaller than `MIN_PILLAR_AREA` | Treated as noise, not a sign |
-| Sign jitters around frame centre | Dead zone of ±0.06 snaps it to exactly centred |
-| Sensor returns `None` | Speed drops to slow rather than cruising blind |
-| Nothing detected at all | Lane following from the ±45° diagonals |
+| Sign flickers out for a single frame | Half a second of confirmation before the pass is declared over |
+| Two signs in view at once | Nearest by measured distance wins, and frame order is irrelevant |
+| Sign appears in the middle of a corner | The corner outranks the sign, because the table row order says so |
+| Blob smaller than the minimum area | Treated as noise, not as a sign |
+| Sign jittering around the frame centre | A dead zone snaps it to exactly centred so the wheels do not twitch |
+| A sensor returns no reading | Speed drops to slow rather than cruising blind |
+| Nothing detected at all | Lane following from the two diagonal sensors |
 
 ---
 
 ## 9. Parking Strategy
 
-The parking lot is bounded by **two magenta elements, 20 × 2 × 10 cm**. The slot is
-20 cm wide and 1.5 × the robot's length — for our 15 cm car, **22.5 cm**.
+The parking lot is bounded by two magenta elements measuring 20 by 2 by 10 cm. The slot
+is 20 cm wide and 1.5 times the robot's length, which for our 15 cm car means 22.5 cm.
 
-### Magenta vs Red — A Collision We Had to Resolve
+### Magenta Against Red
 
 Magenta sits immediately below red on the hue circle. Our original upper red band
-started at hue 165 and **swallowed the magenta markers entirely** — the robot saw the
-parking lot as a giant traffic sign and tried to pass it on the right. Red now starts
-at 172, which costs nothing because red's main band is 0–10.
+started low enough that it **swallowed the magenta markers entirely**, and the robot
+saw the parking lot as a giant traffic sign and tried to pass it on the right. The red
+band now starts higher, which costs nothing because red's main band sits at the other
+end of the scale. Our self test puts a red sign and both magenta markers in the same
+frame and asserts that neither colour steals the other.
 
-```python
-"RED":  [((0, 90, 40), (10, 255, 255)), ((172, 90, 40), (180, 255, 255))],
-MAGENTA_RANGE = [((140, 70, 60), (170, 255, 255))]
-```
+### Aiming at the Gap
 
-Our self-test puts a red sign and both magenta markers in the same synthetic frame and
-asserts neither colour steals the other.
+The vision module returns the midpoint between the markers' inner edges, which is the
+slot itself rather than either marker. Verified in the self test as within one pixel of
+the true midpoint.
 
-### Aiming at the Gap, Not the Markers
-
-`parking_gap()` returns the midpoint between the markers' **inner edges** — the slot
-itself, not either marker. Verified in the self-test: true midpoint 310 px, reported
-311 px.
-
-**Both markers must be visible** before `PARKING_VISIBLE` fires. You cannot aim at a
-gap you can only half see.
-
-`SEARCH_PARKING → ALIGN_PARKING → ENTER_PARKING → FINISHED`
+Both markers must be visible before the robot commits, because you cannot aim at a gap
+you can only half see. The sequence is `SEARCH_PARKING`, then `ALIGN_PARKING`, then
+`ENTER_PARKING`, then `FINISHED`.
 
 ### Two Bugs This Sequence Taught Us
 
-**1. Watching the wrong sensor.** Our first version stopped when the *rear* ToF read
-close. But the camera faces forward, so the slot is only visible while driving at it —
-the robot enters nose-first and the rear sensor is pointed back at the open mat it came
-from. It never triggered, and the robot stopped on a timeout instead of on arrival.
+**We were watching the wrong sensor.** Our first version stopped when the rear distance
+sensor read close. But the camera faces forward, so the slot is only visible while
+driving at it, meaning the robot enters nose first and the rear sensor is pointed back
+at the open mat it came from. It never triggered, and the robot stopped on a timeout
+rather than on arrival.
 
-**2. The stop was physically unreachable.** Navigation emergency-stops at 150 mm, but
-`PARKED` triggered at 120 mm — so the robot froze before it could ever reach its own
-trigger. Fixed with a **speed floor** for `ENTER_PARKING`, the same pattern we already
-needed for corners:
-
-```
-t=2.6  ENTER_PARKING  speed 20  front 200 mm   past the emergency-stop line
-t=3.1  ENTER_PARKING  speed 15  front 140 mm   creeping
-t=3.6  FINISHED       speed  0  front  95 mm   reason: Parked
-```
-
-Before the fix that last line read `reason: Timed out`. The self-test now asserts
-`PARKING_STOP_MM < STOP_ENTER_MM` so the ordering cannot silently break again.
+**The stop was then physically unreachable.** Navigation performs an emergency stop at
+150 mm, but the parking trigger sat at 120 mm, so the robot froze before it could ever
+reach its own trigger. The fix was a minimum speed for the entry phase, the same
+pattern we had already needed for corners, together with a threshold below the
+emergency stop line. A self test assertion now enforces that ordering so it cannot
+silently break again.
 
 ---
 
-## 10. Systems Thinking: Constraints, Trade-offs and Failures
+## 10. Systems Thinking
 
 ### Constraints We Designed Around
 
 | Constraint | Source | Consequence |
 |---|---|---|
-| Slot = 1.5 × robot length | Rule | Chassis kept to 15 cm; every cm costs 1.5 cm of slot |
-| Drive wheels physically connected | Rule 11.3 / 11.5 | Single motor + gearbox, not one per side |
-| Two buttons only | Rule 9.10 / 9.11 | No laptop interaction at the start line |
-| Track randomised each round | Rule | Nothing hard-coded; all behaviour sensor-driven |
-| VL53L0X and TCS34725 share address 0x29 | Hardware | Multiplexer required |
-| RP2350 not 5 V tolerant | Hardware | All sensor logic on 3V3 |
-| Linux is not real-time | Platform | Two-controller architecture |
+| Slot is 1.5 times robot length | Rule | Chassis kept to 15 cm, since every cm costs 1.5 cm of slot |
+| Drive wheels physically connected | Rules 11.3 and 11.5 | Single motor and gearbox, not one motor per side |
+| Two buttons only | Rules 9.10 and 9.11 | No laptop interaction at the start line |
+| Track randomised each round | Rule | Nothing hard coded, all behaviour sensor driven |
+| Distance and colour sensors share one address | Hardware | Multiplexer required |
+| RP2350 is not 5 V tolerant | Hardware | All sensor logic on the 3.3 V rail |
+| Linux is not real time | Platform | Two controller architecture |
 
 ### Key Trade-offs
 
 | Decision | Chosen | Rejected | Reasoning |
 |---|---|---|---|
-| Compute | Pi 3 **+** Pico | Pi alone | Non-real-time OS would starve the control loop |
-| Sensor addressing | TCA9548A mux | XSHUT re-addressing | No boot sequencing that can fail silently |
-| Side sensors | ±45° diagonals | 90° lateral | Sees corners early enough to plan |
+| Compute | Pi 3 and Pico together | Pi alone | A non real time operating system would starve the control loop |
+| Sensor addressing | Multiplexer | Shutdown pin re-addressing | No boot sequencing that can fail silently |
+| Side sensor angle | 45 degrees | 90 degrees | Sees corners early enough to plan a turn |
 | Control law | Proportional | PID | Tunable at a competition by one person under pressure |
-| Sign selection | Nearest | Largest contour | Correct when two signs are visible |
-| Detection width | 320 px | Full 640 px | ~5× fewer pixels; camera becomes the bottleneck, not the code |
+| Sign selection | Nearest | Largest contour | Correct when two signs are visible at once |
+| Detection width | 320 pixels | Full resolution | Roughly five times fewer pixels, making the camera the bottleneck rather than the code |
 
-**Why no PID?** We can implement one. We chose not to. A PID controller has three
-interacting constants, and a competition venue is the worst possible place to tune
-three interacting constants under time pressure. Our steering has **one gain and one
-rate limit**, both of which a team member can reason about between rounds. Determinism
-and tunability beat theoretical optimality when you get two attempts.
+**Why no PID controller?** We can implement one. We chose not to. A PID controller has
+three interacting constants, and a competition venue is the worst possible place to
+tune three interacting constants under time pressure. Our steering has one gain and one
+rate limit, both of which a team member can reason about between rounds. Determinism
+and tunability beat theoretical optimality when you only get two attempts.
 
 ### Risk Analysis
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Pi crashes mid-run | Robot drives on uncommanded | Pico watchdog: no command for 500 ms → `stop()` |
-| UART disconnects | Total loss of control | Reconnect loop; robot stops, program keeps retrying |
-| One sensor fails | Cascade failure | Every sensor returns `None`; one dead ToF costs one reading |
-| Driver file missing on Pico | All sensors dead | Driver imports isolated; each reports itself by name |
-| Voltage sag at full lock | Pi reboots mid-run | Decoupling at the driver; peak-current budget |
-| Robot wedged against a wall | Run over | Stall detection via encoder → `RECOVERY` |
-| Corner never completes | Deadlock | Timeout → `RECOVERY`; speed floor prevents the freeze |
-| Mini-UART clock drift (Pi 3) | Corrupt bytes under load | `dtoverlay=disable-bt` forces the stable PL011 |
+| Pi crashes mid run | Robot drives on uncommanded | Watchdog on the Pico stops the robot after 500 ms of silence |
+| UART disconnects | Total loss of control | Robot stops, and the program keeps retrying the connection |
+| One sensor fails | Cascade failure | Every sensor returns nothing rather than raising, so one dead sensor costs one reading |
+| A driver file is missing on the Pico | All sensors dead | Driver imports are isolated, and each reports itself by name |
+| Voltage sag at full lock | Pi reboots mid run | Decoupling at the driver and a peak current budget |
+| Robot wedged against a wall | Run is over | Stall detection through the encoder triggers recovery |
+| Corner never completes | Deadlock | Timeout into recovery, and a minimum speed that prevents the freeze |
+| Serial clock drift on the Pi 3 | Corrupt bytes under load | Bluetooth disabled to force the stable hardware UART |
 
-**The Pi 3 UART trap deserves its own note.** On a Pi 3, `/dev/serial0` defaults to the
-mini-UART, whose baud rate is derived from the VPU core clock — which changes with CPU
-load. It works perfectly at idle and corrupts bytes the moment the vision code loads
-the processor. That is an intermittent fault that only appears when the robot is
-working hardest. `enable_uart=1` and `dtoverlay=disable-bt` in `config.txt` move it to
-the stable PL011; `ls -l /dev/serial0` must resolve to `ttyAMA0`, not `ttyS0`.
+**The Pi 3 serial trap deserves its own note.** On a Pi 3 the default serial port is the
+mini UART, whose baud rate is derived from a clock that changes with processor load. It
+works perfectly when the machine is idle and corrupts bytes the moment the vision code
+loads the processor. That is an intermittent fault that only appears when the robot is
+working hardest, which makes it extremely hard to diagnose. Disabling Bluetooth moves
+the port onto the stable hardware UART instead.
 
 ### Iteration Log
 
-| # | Problem | Root cause | Fix |
-|---|---|---|---|
-| 1 | Only one of two signs detected | S/V floors too high; the dimmer sign fell below them | Floors lowered to S ≥ 90, V ≥ 40 |
-| 2 | Robot clipped signs it had already passed | Counter-steer back toward a cleared sign | One-directional clamp per colour |
-| 3 | Drifted further off-centre with each sign | No return-to-lane behaviour | `RECENTER` state added |
-| 4 | Robot gave up mid-corner | Emergency stop fired at the wall being turned away from; stopped robot stops turning | Speed floor for `TURN_CORNER` |
-| 5 | Parking finished on a timer | Stop watched the rear sensor during a nose-first entry | Front sensor, gated to parking states |
-| 6 | Parking stop unreachable | Trigger sat inside the emergency-stop zone | Speed floor + threshold below it, assertion added |
-| 7 | Encoder would have destroyed the Pico | 5 V logic into a 3.3 V pin | Moved to the 3V3 rail |
-| 8 | Magenta read as red | Hue bands overlapped | Red band narrowed to 172+ |
-| 9 | Mode flapped between cruise and slow | Single threshold with noisy readings | Hysteresis: separate enter/exit thresholds |
-| 10 | Stall detection never fired | `x or now` treats timestamp 0.0 as unset | Explicit `is None` |
+| Problem | Root cause | Fix |
+|---|---|---|
+| Only one of two signs detected | Saturation and brightness floors too high, so the dimmer sign fell below them | Floors lowered |
+| Robot clipped signs it had already passed | Counter steering back towards a cleared sign | One directional clamp per colour |
+| Drifted further off centre with each sign | No return to lane behaviour existed | Recentre state added |
+| Robot gave up in the middle of a corner | Emergency stop fired at the wall being turned away from, and a stopped robot stops turning | Minimum speed for cornering |
+| Parking finished on a timer | Stop condition watched the rear sensor during a nose first entry | Front sensor instead, gated to parking states |
+| Parking stop unreachable | Trigger sat inside the emergency stop zone | Minimum speed plus a lower threshold, with an assertion |
+| Encoder would have destroyed the Pico | 5 V logic driven into a 3.3 V pin | Moved to the 3.3 V rail |
+| Magenta read as red | Hue bands overlapped | Red band narrowed |
+| Speed flapped between cruise and slow | A single threshold with noisy readings | Hysteresis, with separate entry and exit thresholds |
+| Stall detection never fired | A timestamp of zero was treated as unset | Explicit comparison against nothing |
 
 ---
 
-## 11. Testing & Validation
+## 11. Testing and Validation
 
-**Every module self-tests on a laptop with no hardware attached.**
+**Every module self tests on a laptop with no hardware attached.** Fifteen of the
+sixteen modules carry their own test, and all of them pass.
 
-```
-$ python state_machine.py --selftest
-selftest ok  12 states, 17 events, 30 transitions, 3 missions
-```
-
-| Module | What its self-test proves |
+| Module | What its self test proves |
 |---|---|
-| `vision_test.py` | Both colours detected in one frame; noise and wrong-shaped blobs rejected; magenta not read as red; gap midpoint within 1 px |
-| `navigation_engine.py` | Pass side never wrong anywhere in the frame; steering never exceeds the servo limit; rate limit holds; hysteresis in both directions |
-| `state_machine.py` | Every state has a transition row; no duplicate events; no mission can deadlock; every substitute is reachable |
-| `main.py` (Pi) | Vision output converts to the navigation format; the wall never reaches navigation; state machine has the final word |
-| `main.py` (Pico) | **Wire format verified against the Pi's actual parser**, not a copy of it |
-| `servo.py` | Clamping symmetric; pulse always inside safe limits |
-| `drv8833.py` | Negative speed means stop, not reverse; duty monotonic |
-| `encoder.py` | One turn = one circumference; reverse counts negative |
-| `distance.py` | One bit per mux channel; IMU and colour channels never touched |
-| `imu.py` | Quaternion → Euler correct at 0°, 90°, 180°; gimbal-lock input does not raise |
-| `colour.py` | Same surface at half brightness classifies identically |
+| Vision | Both colours detected in one frame, noise and wrong shaped blobs rejected, magenta not read as red, gap midpoint within one pixel |
+| Navigation | Pass side never wrong anywhere in the frame, steering never exceeds the servo limit, rate limit holds, hysteresis works in both directions |
+| State machine | Every state has a transition row, no duplicate events, no mission can deadlock, every substitute state is reachable |
+| Coordinator (Pi) | Vision output converts to the navigation format, the wall never reaches navigation, the state machine has the final word |
+| Flight program (Pico) | Wire format verified against the Pi's actual parser rather than a copy of it |
+| Servo | Clamping is symmetric and the pulse always stays inside safe limits |
+| Motor driver | Negative speed means stop rather than reverse, and duty is monotonic |
+| Encoder | One wheel turn equals one circumference, and reverse counts negative |
+| Distance | One multiplexer bit per channel, and the IMU and colour channels are never touched |
+| IMU | Quaternion conversion correct at 0, 90 and 180 degrees, and a gimbal lock input does not raise |
+| Colour | The same surface at half brightness classifies identically |
 
-**Structural assertions** are the ones we value most, because they catch a half-finished
-edit rather than a wrong number:
+The assertions we value most are the structural ones, because they catch a half
+finished edit rather than a wrong number. Every state must have a transition row. Every
+mission must be able to reach an ending. The parking threshold must sit below the
+emergency stop threshold. These fail on a laptop in milliseconds rather than on the mat
+in front of a judge.
 
-```python
-assert set(TRANSITIONS) == set(State), "a state has no transition row"
-assert PARKING_STOP_MM < navigation_engine.STOP_ENTER_MM
-```
-
-<!-- TODO — REPLACE WITH REAL MEASUREMENTS. Do not estimate these.
+<!-- TODO: replace with real measurements once the robot has run.
 ### Field Test Results
-| Test | Runs | Success | Notes |
+| Test | Runs | Successes | Notes |
 |---|---|---|---|
-| Open Challenge, 3 laps | | | |
-| Obstacle Challenge, 3 laps | | | |
-| Parking, both directions | | | |
-| Sign pass, red / green | | | |
+| Open Challenge, three laps | | | |
+| Obstacle Challenge, three laps | | | |
+| Parking, both driving directions | | | |
+| Red sign pass | | | |
+| Green sign pass | | | |
 -->
 
-> **Current status:** the software stack is complete and passes 15 module self-tests.
-> Field testing on the physical robot is in progress; measured results will be added
-> here as they are collected.
+> **Current status.** The software stack is complete and passes fifteen module self
+> tests. Field testing on the physical robot is in progress, and measured results will
+> be added here as they are collected.
 
 ---
 
-## 12. Build, Flash and Run
-
-### Raspberry Pi 3
-
-```bash
-sudo apt install python3-opencv python3-pip
-pip install pyserial
-
-# Pi 3 only — move the UART off the unstable mini-UART
-sudo nano /boot/firmware/config.txt      # add: enable_uart=1
-                                         #      dtoverlay=disable-bt
-sudo systemctl disable hciuart
-sudo raspi-config                        # Serial: login shell NO, hardware YES
-sudo reboot
-ls -l /dev/serial0                       # must point at ttyAMA0
-```
-
-### Raspberry Pi Pico 2 W
-
-```bash
-# 1. Flash MicroPython — the RP2350 build, not the RP2040 "Pico W" one
-#    micropython.org/download/RPI_PICO2_W  → hold BOOTSEL, drag the .uf2
-
-# 2. Third-party drivers into src/pico/drivers/
-#    vl53l0x.py · bno08x.py · tcs34725.py
-
-# 3. Deploy
-cd src/pico && ./deploy.sh --drivers
-```
-
-### Run
-
-```bash
-cd src/pi3
-python3 main.py                # competition
-python3 main.py --dry-run --show   # laptop: webcam + decisions, no UART
-python3 main.py --debug        # one status block per frame
-```
-
----
-
-## 13. Calibration Guide
-
-Values that **must** be measured on your build — the software cannot guess them:
-
-| Constant | File | How to measure |
-|---|---|---|
-| `GEAR_RATIO` | `encoder.py` | Mark the tyre, turn 10 revolutions, divide the pulse change by 10 |
-| `WHEEL_DIAMETER_MM` | `encoder.py` | Calipers across the tyre **with the robot's weight on it** |
-| `CENTRE_US` | `servo.py` | Send `40,0`, adjust until the wheels are dead straight |
-| `MAX_STEER` | `servo.py` | Reduce until full lock no longer makes the servo strain |
-| `CAMERA_HFOV_DEG` | `vision_test.py` | Place a sign at a measured 50 cm, adjust until the readout agrees |
-| `ROI_TOP` | `vision_test.py` | Set once the camera is mounted |
-| `COLOUR_RANGES` | `vision_test.py` | Press **M** for mask view; widen until both signs are solid white |
-| `MAGENTA_RANGE` | `vision_test.py` | Same, on the real markers under competition lighting |
-
-Direction flags — set by observation, never by rewiring: `STEER_DIRECTION` (servo turns
-the wrong way) and `ENCODER_DIRECTION` (forward counts down). If the motor spins
-backwards, swap the two motor wires rather than negating in software.
-
----
-
-## 14. Engineering Journal
+## 12. Engineering Journal
 
 <!-- TODO: add the PDF to other/ and link it here -->
-The full engineering journal — weekly progress, sketches, failed prototypes and test
-logs — is in [`other/engineering-journal.pdf`](other/).
+
+The full engineering journal, covering weekly progress, sketches, failed prototypes and
+test logs, is in [`other/`](other/).
 
 ---
 
-## 15. Videos
+## 13. Videos
 
-<!-- TODO: replace with real YouTube links. Each must show ≥30 s of autonomous driving. -->
+<!-- TODO: replace with real links. Each video must show at least 30 seconds of
+     autonomous driving, and one is required for each challenge. -->
 
 | Round | Link |
 |---|---|
 | Open Challenge | *YouTube URL* |
 | Obstacle Challenge | *YouTube URL* |
 
-Also recorded in [`video/video.md`](video/).
+Also recorded in [`video/`](video/).
 
 ---
 
-## 16. Acknowledgements
+## 14. Acknowledgements
 
-<!-- TODO: your school, mentors, sponsors. -->
+<!-- TODO: your school, mentors and sponsors -->
 
-Open-source work we build on: **OpenCV**, **MicroPython**, and the MicroPython drivers
-for VL53L0X, BNO08x and TCS34725. We also studied the public repositories of previous
-WRO Future Engineers teams — the category's culture of publishing work openly is the
-reason this repository exists in the form it does.
+Open source work we build on: OpenCV, MicroPython, and the MicroPython drivers for the
+VL53L0X, BNO08x and TCS34725 sensors. We also studied the public repositories of
+previous WRO Future Engineers teams. The category's culture of publishing work openly
+is the reason this repository exists in the form it does.
 
 ---
 
 <p align="center">
-  <b>Team Tricky Trio</b> · WRO 2026 Future Engineers<br>
+  <b>Team Tricky Trio</b> &middot; WRO 2026 Future Engineers<br>
   <i>Every constant in this repository is either measured or explained.</i>
 </p>
