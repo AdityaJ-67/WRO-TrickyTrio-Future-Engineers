@@ -1,10 +1,5 @@
 <h1 align="center">Tricky Trio — WRO 2026 Future Engineers</h1>
 
-<p align="center">
-  <b>Self-Driving Cars Challenge · World Robot Olympiad 2026</b><br>
-  Raspberry Pi 3 vision and planning · Raspberry Pi Pico 2 W real-time control
-</p>
-
 <!-- TODO: add your country, city and a hero photo of the finished robot here.
      A single wide photo of the car on the mat reads far better than a logo. -->
 
