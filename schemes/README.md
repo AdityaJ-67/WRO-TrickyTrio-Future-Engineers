@@ -1,109 +1,345 @@
-# Electrical Components
+# Electrical Components and Wiring
 
-## System Architecture
+Schematics, the full connection list, and the reasoning behind each part choice.
 
-In this architectural setup, the Raspberry Pi 5 acts as the high-level "Brain" (handling heavy computational tasks), while the Pico 2 W acts as the low-level "Brainstem" (handling real-time hardware execution). [[1]](https://www.hackster.io/HiwonderRobot/pi-5-powerhouse-building-the-ultimate-ros-2-composite-bot-fd2bc1)
+**Files in this folder**
 
-### What the Pi 5 is responsible for
+| File | Contents |
+|---|---|
+| `circuit_image.svg` | Full schematic |
+| `Wiring_image.png` | Physical wiring layout |
+| `Main Electrical Components.xlsx` | Parts list with sourcing |
+| `README.md` | This document |
 
-**1. Computer Vision and Image Processing**
-- **Camera Module 3 Management:** The Camera Module 3 connects directly to the Pi 5 because processing high-definition live video feeds requires immense CPU power and RAM that the Pico 2 W lacks. [[1]](https://www.pocket-lint.com/how-to-use-raspberry-pi-5-beginner-projects/)
-- **Visual Intelligence:** The Pi 5 runs heavy workloads like object detection, line tracking, obstacle recognition, or AprilTag/QR code scanning on the live video stream.
+## Contents
 
-**2. High-Level AI and Navigation (SLAM)**
-- **Algorithmic Processing:** The Pi 5 ingests the bundled raw sensor data sent by the Pico 2 W over the UART connection.
-- **Mapping and Pathfinding:** It runs complex navigation stacks like SLAM (Simultaneous Localization and Mapping), combining the 4x distance sensors, IMU orientation data, and camera stream to build a virtual map of its surroundings and calculate safe paths. [[1]](https://www.hackster.io/HiwonderRobot/pi-5-powerhouse-building-the-ultimate-ros-2-composite-bot-fd2bc1)
-
-**3. Central System Orchestration**
-- **Robot Operating System (ROS):** The Pi 5 runs a full Linux OS (Raspberry Pi OS) to host framework tools like ROS 2, which manage the overall timing, decision-making, and state machine of the robot. [[1]](https://www.embeddedrelated.com/showarticle/1332.php) [[2]](https://hackmd.io/@ampheo/how-does-raspberry-pi-work) [[3]](https://www.hiwonder.com/blogs/news/raspberry-pi)
-- **The Decision Loop:** It makes macroscopic decisions (e.g. "there is a red block ahead, stop and turn left") and broadcasts simple command packets down to the Pico 2 W (e.g. "set servo to 45 degrees, set motor speed to 50%").
-
-**4. Wireless Telemetry and UI**
-- **User Interface:** The Pi 5 can host a web dashboard, stream live camera feeds to a phone or laptop over local Wi-Fi, or log sensor metrics directly to its micro-SD card for performance analysis. [[1]](https://www.elecrow.com/blog/home-automation-projects-with-raspberry-pi-5.html)
-
-
-
-### What the Pico 2 W is responsible for
-
-The Raspberry Pi Pico 2 W acts as the low-level "Brainstem" or real-time hardware controller. While the Pi 5 handles heavy computing and vision, it is poorly suited to precise microsecond-level timing because its Linux OS is constantly juggling background tasks. The Pico 2 W runs a dedicated microcontroller loop instead, making it the right tool for direct hardware execution.
-
-**1. High-Speed Sensor Harvesting**
-- **The Multiplexer Manager:** The Pico actively manages the TCA9548A multiplexer — opening Channel 0, reading a distance sensor, switching to Channel 1, reading the color sensor, and looping through all channels cleanly without dropping packets.
-- **Data Serialization:** It collects raw bytes from the 4x ToF sensors, the BNO085 IMU, and the TCS34725 color module, packages them into a single text string, and streams it out via UART to the Pi 5.
-
-**2. Precise Pulse Width Modulation (PWM) Actuation**
-- **Smooth Steering Control:** It generates the exact 50Hz PWM signal needed to keep the MG90S servo locked onto its target angle without jitter.
-- **Motor Speed Control:** It fires high-frequency PWM pulses to the DRV8833 motor driver to smoothly throttle the speed and direction of the GA12-N20 DC motor.
-
-**3. Microsecond Odometry Tracking**
-- **Encoder Interrupts:** As the GA12-N20 motor spins, its internal encoder generates thousands of electrical pulses per minute. The Pico 2 W uses hardware interrupts to count every pulse on GP12 and GP13 without dropping any, tracking exactly how far the wheel has rotated.
-
-**4. Safety Interlocks (Emergency Stop)**
-- Because the Pico is wired directly to the distance sensors and the motor driver, it can run low-level override code. If a VL53L0X sensor suddenly detects an obstacle at close range, the Pico can instantly cut power to the DRV8833 rather than waiting for the Pi 5 to process a camera frame and send a command.
+1. [System Architecture](#system-architecture)
+2. [Component List](#component-list)
+3. [Design Rationale](#design-rationale)
+4. [Master Connection and PCB Routing List](#master-connection-and-pcb-routing-list)
 
 ---
 
+## System Architecture
+
+Compute is split across two boards. The **Raspberry Pi 3** is the high level brain,
+handling anything that needs an operating system. The **Pico 2 W** is the low level
+brainstem, handling anything with a deadline.
+
+### What the Pi 3 is responsible for
+
+**Computer vision.** The Camera Module 3 connects directly to the Pi 3, because
+processing a live video feed needs the CPU, RAM and filesystem that a microcontroller
+does not have. The Pi runs the detection pipeline that finds red and green traffic
+signs, the black wall, and the magenta parking markers, and estimates the distance to
+each from its known real height.
+
+**Navigation and planning.** The Pi ingests the sensor readings the Pico sends over
+UART, combines them with what the camera sees, and decides how to drive. Separate
+steering laws handle lane following, sign passing, cornering and parking.
+
+**Competition behaviour.** An event driven state machine tracks what the robot is
+currently doing across twelve states and three missions, and has the final say on the
+command that gets sent to the Pico.
+
+**Telemetry.** During testing the Pi prints a status block per frame and can draw the
+camera view with detections overlaid, which is how the vision thresholds get tuned.
+
+### What the Pico 2 W is responsible for
+
+Linux is not a real time operating system. A background process, a filesystem sync or a
+Wi-Fi interrupt can stall a Python loop for tens of milliseconds, which is long enough
+to make steering twitchy or leave a wheel spinning unchecked. The Pico runs a dedicated
+loop instead, so these functions never get starved by the vision stack.
+
+**Sensor harvesting.** The Pico manages the TCA9548A multiplexer, opening one channel
+at a time to read the four distance sensors, the IMU and the colour sensor, then
+packaging the readings into a single line of text and streaming it to the Pi.
+
+**Actuation.** It generates the 50 Hz PWM the MG90S servo needs to hold a steering
+angle without jitter, and the 20 kHz PWM that drives the DRV8833. The higher frequency
+is above hearing, so the motor does not whine.
+
+**Odometry.** The GA12-N20's encoder produces thousands of pulses per minute. The Pico
+counts every one on a hardware interrupt, so pulses are never dropped even while the
+main loop is busy elsewhere.
+
+**Safety.** Because the Pico owns the motor, it can stop the robot without asking the
+Pi. If no command arrives for 500 ms, meaning the Pi has crashed or the cable has come
+loose, the watchdog stops the robot. This is the single most important reason the
+architecture is split in two.
+
+---
+
+## Component List
+
+<!-- TODO for each component:
+       1. add a photo and fix the image path
+       2. fill in the electrical values
+     These are the ELECTRICAL specifications. Mechanical dimensions and
+     performance figures live in the main README, so each number has one home. -->
+
+### Raspberry Pi 3 Model B
+
+<img src="../v-photos/Components/pi3.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage | |
+| Typical current draw | |
+| Peak current draw | |
+| Logic level | |
+| Interface to Pico | |
+| Camera interface | |
+
+### Raspberry Pi Pico 2 W
+
+<img src="../v-photos/Components/pico.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage (VSYS) | |
+| Typical current draw | |
+| Logic level | |
+| 3.3 V rail output current available | |
+| PWM channels used | |
+| I2C bus used | |
+
+### Camera Module 3
+
+<img src="../v-photos/Components/camera.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply | |
+| Connector type | |
+| Cable required for Pi 3 | |
+| Resolution used | |
+| Frame rate used | |
+
+### GA12-N20 Gear Motor with Encoder
+
+<img src="../v-photos/Components/motor.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Rated voltage | |
+| No load current | |
+| Stall current | |
+| Encoder supply voltage | |
+| Encoder output type | |
+| Encoder pulses per motor revolution | |
+
+### MG90S Servo
+
+<img src="../v-photos/Components/servo.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage | |
+| Idle current | |
+| Stall current | |
+| Signal voltage accepted | |
+| PWM frequency | |
+| Pulse width range used | |
+
+### DRV8833 Motor Driver
+
+<img src="../v-photos/Components/drv8833.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Motor supply (VM) range | |
+| Continuous current per channel | |
+| Peak current per channel | |
+| Logic input voltage | |
+| PWM frequency used | |
+| nSLEEP handling | |
+
+### VL53L0X Time of Flight Sensor (x4)
+
+<img src="../v-photos/Components/vl53l0x.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage | |
+| Current draw, per sensor | |
+| I2C address | |
+| Bus speed | |
+| Multiplexer channels used | |
+| XSHUT handling | |
+
+### TCA9548A I2C Multiplexer
+
+<img src="../v-photos/Components/tca9548a.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage | |
+| I2C address | |
+| Number of channels | |
+| Channels used | |
+| Pull-up resistors fitted | |
+
+### BNO085 IMU
+
+<img src="../v-photos/Components/bno085.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage | |
+| Current draw | |
+| I2C address | |
+| Multiplexer channel | |
+| Protocol select pins (PS0, PS1) | |
+
+### TCS34725 Colour Sensor
+
+<img src="../v-photos/Components/tcs34725.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Supply voltage | |
+| Current draw | |
+| I2C address | |
+| Multiplexer channel | |
+| Onboard LED control | |
+
+### Mini560 Buck Converter
+
+<img src="../v-photos/Components/mini560.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Input voltage range | |
+| Output voltage | |
+| Continuous output current | |
+| Peak output current | |
+| Efficiency | |
+
+### Battery
+
+<img src="../v-photos/Components/battery.jpg" width="200">
+
+| Specification | Value |
+|---|---|
+| Chemistry | 2S1P LiPo |
+| Nominal voltage | 7.4 V |
+| Capacity | 1500 mAh |
+| Discharge rating | 35C |
+| Stored energy | |
+| Measured run time | |
+
+---
 
 ## Design Rationale
 
 Why these specific parts, rather than the alternatives.
 
-### Compute & Control
+### Compute and Control
 
-Splitting compute across two boards was a deliberate choice rather than the default. A single Raspberry Pi 5 could technically run everything, including the servo/motor PWM, but Linux is not a real-time OS — a background process (a filesystem sync, a Wi-Fi hiccup, a garbage-collection pause) can stall a PWM update by tens of milliseconds, which is enough to make steering twitchy or let a wheel spin unchecked for a moment. Offloading motor control, encoder counting, and the safety cutoff to the Pico 2 W means those functions keep running on a dedicated loop no matter how busy the Pi 5 gets processing camera frames. The tradeoff is added wiring and a UART link to keep the two boards in sync, which we accepted in exchange for control loops that don't get starved by the vision stack.
+Splitting compute across two boards was a deliberate choice rather than a default. A
+single Pi could technically run everything, including the servo and motor PWM, but the
+timing problem described above makes that unreliable in exactly the moments that
+matter. Offloading motor control, encoder counting and the safety cutoff to the Pico
+means those functions keep running no matter how busy the Pi gets processing camera
+frames. The trade is extra wiring and a UART link to keep the two boards in sync, which
+we accepted in exchange for control loops that never get starved.
 
 ### Drivetrain
 
-The GA12-N20 6V 300RPM gearmotor was chosen for its combination of small size, built-in gearbox, and an onboard encoder — the encoder is the deciding factor, since it lets the Pico measure actual wheel rotation instead of assuming a PWM duty cycle maps cleanly to speed. Theoretical top speed follows v = πDN/60 (D = wheel diameter, N = motor RPM), but that number ignores load, friction, and battery sag, so once the wheel diameter is finalized we plan to measure real acceleration, top speed, and cornering behaviour and tune the operating PWM experimentally rather than just running the motor flat out.
+The GA12-N20 6 V gearmotor was chosen for its combination of small size, integrated
+gearbox and onboard encoder. **The encoder is the deciding factor.** It lets the Pico
+measure actual wheel rotation instead of assuming a PWM duty cycle maps cleanly to
+speed, and without it the robot cannot tell that it is stalled. Stall detection is what
+triggers the recovery behaviour, so a robot without odometry that gets wedged against a
+wall will sit there until the round ends.
 
-The DRV8833 drives it. It was picked over bulkier options like the L298N specifically for its smaller footprint and better efficiency at the low voltages this build runs at — it handles both direction and PWM speed control while isolating the motor's current draw from the logic-level pins on the Pico.
+Theoretical top speed follows the relation between wheel circumference and output shaft
+revolutions per minute, but that ignores load, friction and battery sag, so we treat it
+as a ceiling and tune the operating PWM experimentally instead.
 
-Steering uses the MG90S servo rather than a second drive motor or a rack-and-pinion setup, since a servo gives direct, repeatable angle control in a small package, and its PWM signal comes straight from the Pico — so steering response stays independent of whatever the Pi 5 is doing with the camera feed.
+The DRV8833 drives it, picked over bulkier options like the L298N for its smaller
+footprint and much better efficiency at the low voltages this build runs at. It handles
+both direction and speed while isolating the motor's current draw from the logic pins
+on the Pico.
+
+Steering uses the MG90S servo rather than a second drive motor or a rack and pinion
+setup, since a servo gives direct, repeatable angle control in a small package. Its
+signal comes straight from the Pico, so steering response stays independent of whatever
+the Pi is doing with the camera feed. The metal gear train also survives clipping a
+wall, which is the failure mode that destroys plastic geared servos.
 
 ### Power System
 
-The robot runs on a 7.4V, 1500mAh, 35C, 2S1P LiPo (Ovonic AIR). At nominal voltage that's E = VQ = 7.4 × 2.2 = **16.28Wh** of stored energy — which matches the rating printed on the pack itself.
+The robot runs on a 7.4 V, 1500 mAh, 35C, 2S1P LiPo, giving roughly 11 Wh of stored
+energy.
 
-One deliberate design choice here: the DRV8833's motor supply (`VM`) taps the raw battery voltage directly, in parallel with the Mini560 buck converter's input, rather than running off the regulated 5V rail. That gives the motor more voltage headroom than a 5V-limited system would, at the cost of intentionally overdriving a 6V-rated motor if it were ever run at 100% duty — which is why PWM duty cycle needs to stay software-limited rather than left uncapped. In exchange, motor current never has to pass through the regulated logic rail at all, so current spikes from the motor can't sag the voltage feeding the Pi 5, Pico, or sensors. The Mini560 converter handles the regulated 5V side that actually powers the Pi 5, the Pico, and the MG90S.
+One deliberate choice here: the DRV8833's motor supply taps the raw battery voltage
+directly, in parallel with the buck converter's input, rather than running off the
+regulated 5 V rail. That gives the motor more voltage headroom, at the cost of
+overdriving a 6 V rated motor if it were ever run at 100 percent duty, which is why the
+PWM duty is software limited rather than left uncapped. In exchange, motor current
+never passes through the regulated logic rail at all, so current spikes cannot sag the
+voltage feeding the Pi, the Pico or the sensors.
 
-### Distance & Environmental Sensing
+The Mini560 handles the regulated 5 V side that powers the Pi 3, the Pico and the
+servo. The peak draw is what sizes it: the Pi alone can pull 2.5 A, and the servo adds
+up to 1.5 A at stall, which happens exactly when the robot is steering hard.
 
-Four VL53L0X time-of-flight sensors sit across the front and back of the chassis rather than one, so the robot gets multiple simultaneous distance readings across its field of travel instead of a single point measurement — useful for estimating position relative to walls rather than just detecting "something is close."
+### Logic Levels
 
-All VL53L0X units share the same default I²C address, which is a problem the moment you want more than one on the same bus. Rather than reflashing each sensor's address individually, a TCA9548A 8-channel I²C multiplexer sits between the Pico and the sensor network, giving each device (4x VL53L0X, the TCS34725, and the BNO085) its own isolated channel. That uses 6 of the multiplexer's 8 channels, leaving 2 free for future sensor additions without any rewiring of the existing network.
+**Every sensor output runs at 3.3 V.** The RP2350 is not 5 V tolerant, with an absolute
+maximum of 3.3 V plus 0.3 V on any GPIO pin. This is why the N20 encoder is supplied
+from the Pico's 3.3 V rail rather than the 5 V rail. A magnetic encoder outputs at
+whatever voltage supplies it, so a 5 V supply would have put 5 V logic straight into
+GP12 and GP13. That fault would have worked on the bench and destroyed the
+microcontroller days later, which is the hardest kind of fault to diagnose because it
+looks like a software bug.
 
-### Orientation & Colour Sensing
+### Distance and Environmental Sensing
 
-The BNO085 IMU adds orientation and motion data that neither the wheel encoder nor the camera can fully provide on their own — particularly useful mid-turn, when wheel odometry alone tends to drift.
+Four VL53L0X time of flight sensors sit across the front and back of the chassis rather
+than one, so the robot gets several simultaneous readings across its field of travel
+instead of a single point measurement. The two side sensors are angled at 45 degrees
+rather than straight out, so they watch the forward diagonals and see an approaching
+corner while there is still room to react.
 
-The TCS34725 exists specifically so color detection doesn't depend entirely on the camera. It gives a direct, low-overhead RGB reading that the Pico can read and act on quickly, while the camera handles the spatial/visual side of track interpretation on the Pi 5. Two independent ways of sensing color is more robust than betting everything on one.
+All VL53L0X units share the same default I2C address, and so does the TCS34725, which
+is a problem the moment you want more than one on a bus. Rather than reflashing each
+sensor's address individually, a TCA9548A multiplexer sits between the Pico and the
+sensor network, giving each device its own isolated channel. That uses six of the eight
+channels, leaving two free for future additions without rewiring anything.
+
+### Orientation and Colour Sensing
+
+The BNO085 IMU adds orientation data that neither the encoder nor the camera can
+provide on their own, and it is particularly useful mid turn, where wheel odometry
+alone drifts. It runs sensor fusion on its own processor rather than handing over raw
+accelerometer and gyroscope values to filter.
+
+The TCS34725 exists so that colour detection does not depend entirely on the camera. It
+gives a direct, low overhead reading that the Pico can act on quickly, while the camera
+handles the spatial side of track interpretation on the Pi. Its built in infrared
+filter is what keeps it stable while four infrared distance sensors are firing beside
+it.
 
 ### Vision System
 
-The Camera Module 3 is the primary visual sensor, feeding the Pi 5's computer-vision pipeline. Because Camera Module 3 uses a 15-pin FPC connector while the Pi 5's CSI ports are the newer 22-pin small-pitch style, it needs the correct 15-to-22 pin adapter cable rather than the cable the camera ships with for older Pi boards.
+The Camera Module 3 is the primary visual sensor and the only one that can distinguish
+red from green. It is also the only sensor that sees far enough ahead to plan a
+manoeuvre rather than react to one.
 
+The Pi 3 has a single 15 pin CSI connector, so the camera uses a standard 15 pin ribbon
+cable. The 15 to 22 pin adapter sold for Camera Module 3 is for the newer boards with
+narrower connectors and does not fit a Pi 3.
 
-## Robot Dimensions
+---
 
-Physical facts every clearance calculation depends on. Measured, not assumed.
+## Master Connection and PCB Routing List
 
-| Value | Measurement |
-|---|---|
-| Chassis width | 10.5 cm |
-| Chassis length | 15.0 cm |
-| WRO signal block footprint | 5.0 cm |
-| Safety margin used in navigation | 3.0 cm |
-| **Lateral clearance target** | **10.75 cm** (half of us + half a block + margin) |
-
-The clearance figure is what `TARGET_OFFSET` in `navigation_engine.py` is tuned
-to approximate: the gap wanted between the robot's centreline and a pillar's
-centre while passing it. If the chassis changes, retune that constant.
-
-## Master Connection & PCB Routing List
-
-> This list is for the **Raspberry Pi 3**. The header pins referenced below (2/4 = 5V,
-> 6 = GND, 8 = GPIO14/TXD, 10 = GPIO15/RXD) are identical across all 40-pin Pi boards,
-> so only the labels changed. The architecture sections above still describe a Pi 5.
+> Header pins referenced below (2/4 = 5V, 6 = GND, 8 = GPIO14/TXD, 10 = GPIO15/RXD)
+> are identical across all 40-pin Raspberry Pi boards.
 
 ### 1. Power Distribution Bus
 - Battery Positive (+) ➡️ Mini560 IN(+) AND DRV8833 VM (Motor Power Input).
@@ -113,14 +349,14 @@ centre while passing it. If the chassis changes, retune that constant.
 - Mini560 OUT(-) [GND Plane] ➡️ Pico Pin 38 (GND) AND Pi 3 Pin 6 (GND) AND Servo Brown (GND) AND Encoder GND AND DRV8833 GND. Flood the entire bottom layer of the PCB as a solid ground plane to connect these seamlessly.
 - Pico Pin 36 (3V3 OUT Rail) ➡️ VCC / VIN pins of the TCA9548A, BNO085, TCS34725, and all 4x VL53L0X sensors, **plus N20 Encoder VCC and DRV8833 nSLEEP**.
   - Encoder VCC here, not on 5V, so the A/B outputs are 3.3V logic. It draws a few mA.
-  - nSLEEP (labelled SLP or EEP on most breakouts) must be high or the driver stays asleep and the motor does nothing while the code reads perfectly correct. Some breakouts pull it high on-board — check yours before adding the trace.
+  - nSLEEP (labelled SLP or EEP on most breakouts) must be high or the driver stays asleep and the motor does nothing while the code reads perfectly correct. Some breakouts pull it high on-board, so check yours before adding the trace.
 - **Decoupling:** 100 µF electrolytic across DRV8833 VM/GND, placed at the driver. Motor current spikes otherwise drag the shared 5V rail down far enough to reset the Pico mid-run.
 
 ### 2. High-Level Logic Interconnects
 - Pico Pin 1 (GP0 / TX) ➡️ Pi 3 GPIO Pin 10 (RXD0 / GPIO 15)
 - Pico Pin 2 (GP1 / RX) ➡️ Pi 3 GPIO Pin 8 (TXD0 / GPIO 14)
   - Pi 3 only: `/dev/serial0` defaults to the mini-UART, whose baud rate drifts with CPU load and corrupts bytes once the vision code is running. Set `enable_uart=1` and `dtoverlay=disable-bt` in config.txt, then confirm `ls -l /dev/serial0` resolves to **ttyAMA0**, not ttyS0.
-- Camera Module 3 ➡️ Connects directly to the Pi 3's single 15-pin CSI port via a standard 15-pin ribbon cable — the 15-to-22 pin cable is for the Pi 5's narrower connectors and does not fit a Pi 3. (Does not wire to the Pico 2 W.)
+- Camera Module 3 ➡️ Connects directly to the Pi 3's single 15-pin CSI port via a standard 15-pin ribbon cable. The 15-to-22 pin cable is for the newer boards with narrower connectors and does not fit a Pi 3. (Does not wire to the Pico 2 W.)
 
 ### 3. Sensor I2C Network
 - Pico Pin 6 (GP4 / SDA) ➡️ TCA9548A SDA (add a 4.7kΩ pull-up resistor to the 3.3V trace).
@@ -131,13 +367,13 @@ centre while passing it. If the chassis changes, retune that constant.
 - TCA9548A CH3 (SD3 / SC3) ➡️ VL53L0X Distance Sensor #2 (SDA / SCL)
 - TCA9548A CH4 (SD4 / SC4) ➡️ VL53L0X Distance Sensor #3 (SDA / SCL)
 - TCA9548A CH5 (SD5 / SC5) ➡️ VL53L0X Distance Sensor #4 (SDA / SCL)
-- Note: leave all VL53L0X XSHUT pins completely disconnected on the PCB — they pull high naturally.
+- Note: leave all VL53L0X XSHUT pins completely disconnected on the PCB, since they pull high naturally.
 
 ### 4. Drivetrain Control (Motors, Encoders, & Servos)
-- Pico Pin 29 (GP22) ➡️ MG90S Servo Orange (Signal Pin) — bypasses the driver entirely.
+- Pico Pin 29 (GP22) ➡️ MG90S Servo Orange (Signal Pin). Bypasses the driver entirely.
 - Pico Pin 11 (GP8) ➡️ DRV8833 IN1 (Motor Drive Forward PWM)
 - Pico Pin 12 (GP9) ➡️ DRV8833 IN2 (held low for forward; carries the PWM for reverse)
-  - A DRV8833 has no dedicated direction pin. Whichever of IN1/IN2 carries the PWM is the direction, and the duty on it is the speed. GP8 and GP9 are the two halves of PWM slice 4, so they share a frequency — which suits reverse fine, since both want the same 20 kHz.
+  - A DRV8833 has no dedicated direction pin. Whichever of IN1/IN2 carries the PWM is the direction, and the duty on it is the speed. GP8 and GP9 are the two halves of PWM slice 4, so they share a frequency, which suits reverse fine since both want the same 20 kHz.
 - DRV8833 OUT1 / OUT2 ➡️ GA12-N20 Motor Pin 1 & Pin 2 (Motor Power Leads)
   - Solder a 0.1 µF ceramic across the two motor terminals. Brush noise otherwise couples into the encoder lines and shows up as phantom counts that appear only under motor power.
 - GA12-N20 Motor Pin 5 (Encoder A) ➡️ Pico Pin 16 (GP12)
