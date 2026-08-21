@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 800" width="760" height="800"
+     font-family="Helvetica, Arial, sans-serif">
+
+  <rect x="0" y="0" width="760" height="800" fill="#fbfbfc"/>
+
+  <text x="30" y="34" font-size="21" font-weight="700" fill="#1c2b36">Sensor Placement</text>
+  <text x="30" y="55" font-size="12.5" fill="#5b6b77">Top down view, front of the vehicle at the top. Drawn to scale at 20 px per cm.</text>
+
+  <!-- ===== sensing cones, 25 degree field of view ===== -->
+  <g opacity="0.15" fill="#1565c0">
+    <polygon points="380,190 356,92 404,92"/>
+    <polygon points="310,195 205,128 243,90"/>
+    <polygon points="450,195 517,90 555,128"/>
+    <polygon points="380,490 399,568 361,568"/>
+  </g>
+
+  <defs>
+    <marker id="tip" markerWidth="9" markerHeight="9" refX="7" refY="3"
+            orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#1565c0"/>
+    </marker>
+  </defs>
+  <g stroke="#1565c0" stroke-width="1.6" marker-end="url(#tip)">
+    <line x1="380" y1="190" x2="380" y2="100"/>
+    <line x1="310" y1="195" x2="240" y2="125"/>
+    <line x1="450" y1="195" x2="520" y2="125"/>
+    <line x1="380" y1="490" x2="380" y2="562"/>
+  </g>
+
+  <!-- ===== chassis ===== -->
+  <rect x="275" y="190" width="210" height="300" rx="14"
+        fill="#eceff1" stroke="#455a64" stroke-width="2.5"/>
+  <line x1="380" y1="190" x2="380" y2="490" stroke="#b0bec5"
+        stroke-width="1" stroke-dasharray="5 5"/>
+
+  <g fill="#37474f">
+    <rect x="258" y="228" width="18" height="44" rx="4"/>
+    <rect x="484" y="228" width="18" height="44" rx="4"/>
+    <rect x="258" y="412" width="18" height="44" rx="4"/>
+    <rect x="484" y="412" width="18" height="44" rx="4"/>
+  </g>
+  <text x="250" y="256" font-size="11" fill="#546e7a" text-anchor="end">steered</text>
+  <text x="250" y="440" font-size="11" fill="#546e7a" text-anchor="end">driven</text>
+
+  <!-- ===== distance sensors ===== -->
+  <circle cx="380" cy="190" r="8" fill="#1565c0"/>
+  <text x="380" y="72" font-size="12.5" font-weight="600" fill="#1c2b36" text-anchor="middle">Front ToF</text>
+  <text x="380" y="87" font-size="11" fill="#5b6b77" text-anchor="middle">0&#176; &#183; channel 0</text>
+
+  <circle cx="310" cy="195" r="8" fill="#1565c0"/>
+  <text x="192" y="112" font-size="12.5" font-weight="600" fill="#1c2b36" text-anchor="end">Left ToF</text>
+  <text x="192" y="127" font-size="11" fill="#5b6b77" text-anchor="end">&#8722;45&#176; &#183; channel 3</text>
+
+  <circle cx="450" cy="195" r="8" fill="#1565c0"/>
+  <text x="568" y="112" font-size="12.5" font-weight="600" fill="#1c2b36">Right ToF</text>
+  <text x="568" y="127" font-size="11" fill="#5b6b77">+45&#176; &#183; channel 4</text>
+
+  <circle cx="380" cy="490" r="8" fill="#1565c0"/>
+  <text x="400" y="514" font-size="12.5" font-weight="600" fill="#1c2b36">Rear ToF</text>
+  <text x="400" y="529" font-size="11" fill="#5b6b77">180&#176; &#183; channel 5</text>
+
+  <!-- ===== other sensors ===== -->
+  <rect x="362" y="206" width="36" height="20" rx="4" fill="#6a1b9a"/>
+  <text x="380" y="220" font-size="10.5" font-weight="600" fill="#ffffff" text-anchor="middle">CAM</text>
+  <text x="380" y="246" font-size="12.5" font-weight="600" fill="#1c2b36" text-anchor="middle">Camera Module 3</text>
+  <text x="380" y="261" font-size="11" fill="#5b6b77" text-anchor="middle">forward, elevated &#183; 66&#176; horizontal</text>
+
+  <rect x="356" y="320" width="48" height="34" rx="5" fill="#ef6c00"/>
+  <text x="380" y="342" font-size="10.5" font-weight="600" fill="#ffffff" text-anchor="middle">IMU</text>
+  <text x="380" y="372" font-size="12.5" font-weight="600" fill="#1c2b36" text-anchor="middle">BNO085</text>
+  <text x="380" y="387" font-size="11" fill="#5b6b77" text-anchor="middle">centre, flat &#183; channel 2</text>
+
+  <circle cx="380" cy="430" r="11" fill="#2e7d32"/>
+  <text x="380" y="460" font-size="12.5" font-weight="600" fill="#1c2b36" text-anchor="middle">TCS34725</text>
+  <text x="380" y="475" font-size="11" fill="#5b6b77" text-anchor="middle">underside, facing down &#183; channel 1</text>
+
+  <!-- ===== 45 degree angle marks ===== -->
+  <g stroke="#90a4ae" stroke-width="1" stroke-dasharray="3 3">
+    <line x1="310" y1="195" x2="310" y2="132"/>
+    <line x1="450" y1="195" x2="450" y2="132"/>
+  </g>
+  <path d="M 310 157 A 38 38 0 0 0 283 168" stroke="#607d8b" stroke-width="1.3" fill="none"/>
+  <path d="M 450 157 A 38 38 0 0 1 477 168" stroke="#607d8b" stroke-width="1.3" fill="none"/>
+  <text x="300" y="150" font-size="11.5" font-weight="600" fill="#37474f" text-anchor="end">45&#176;</text>
+  <text x="460" y="150" font-size="11.5" font-weight="600" fill="#37474f">45&#176;</text>
+
+  <!-- ===== dimensions ===== -->
+  <g stroke="#78909c" stroke-width="1.1">
+    <line x1="275" y1="600" x2="485" y2="600"/>
+    <line x1="275" y1="593" x2="275" y2="607"/>
+    <line x1="485" y1="593" x2="485" y2="607"/>
+    <line x1="228" y1="190" x2="228" y2="490"/>
+    <line x1="221" y1="190" x2="235" y2="190"/>
+    <line x1="221" y1="490" x2="235" y2="490"/>
+  </g>
+  <text x="380" y="620" font-size="12" fill="#37474f" text-anchor="middle">10.5 cm wide</text>
+  <text x="212" y="340" font-size="12" fill="#37474f" text-anchor="middle"
+        transform="rotate(-90 212 340)">15.0 cm long</text>
+
+  <!-- ===== legend ===== -->
+  <rect x="30" y="648" width="330" height="132" rx="8" fill="#ffffff" stroke="#cfd8dc"/>
+  <text x="46" y="672" font-size="13" font-weight="700" fill="#1c2b36">Legend</text>
+  <circle cx="54" cy="694" r="7" fill="#1565c0"/>
+  <text x="70" y="698" font-size="11.5" fill="#37474f">VL53L0X distance</text>
+  <rect x="47" y="714" width="14" height="12" rx="3" fill="#6a1b9a"/>
+  <text x="70" y="724" font-size="11.5" fill="#37474f">Camera</text>
+  <rect x="47" y="740" width="14" height="12" rx="3" fill="#ef6c00"/>
+  <text x="70" y="750" font-size="11.5" fill="#37474f">IMU</text>
+  <circle cx="204" cy="694" r="7" fill="#2e7d32"/>
+  <text x="220" y="698" font-size="11.5" fill="#37474f">Colour, underside</text>
+  <polygon points="197,714 211,708 211,726" fill="#1565c0" opacity="0.35"/>
+  <text x="220" y="724" font-size="11.5" fill="#37474f">Sensing cone, 25&#176;</text>
+  <rect x="197" y="740" width="14" height="12" rx="3" fill="#37474f"/>
+  <text x="220" y="750" font-size="11.5" fill="#37474f">Wheel</text>
+
+  <!-- ===== note ===== -->
+  <rect x="380" y="648" width="350" height="132" rx="8" fill="#fff8e1" stroke="#ffca28"/>
+  <text x="398" y="674" font-size="12.5" font-weight="700" fill="#5d4037">Reading a diagonal sensor</text>
+  <text x="398" y="697" font-size="11.5" fill="#5d4037">A reading of D mm at 45&#176; is not lateral clearance.</text>
+  <text x="398" y="715" font-size="11.5" fill="#5d4037">It means roughly 0.71 &#215; D ahead and 0.71 &#215; D to</text>
+  <text x="398" y="733" font-size="11.5" fill="#5d4037">the side. Code that treats a diagonal reading as</text>
+  <text x="398" y="751" font-size="11.5" fill="#5d4037">lateral clearance will drive the robot into a wall.</text>
+</svg>

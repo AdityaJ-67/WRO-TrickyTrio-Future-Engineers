@@ -513,7 +513,7 @@ ceramic capacitor across the motor terminals to suppress brush noise.
 
 ### Sensor Placement
 
-<!-- TODO: add a top down diagram showing sensor positions and angles. -->
+<img src="schemes/sensor-placement.svg" width="620">
 
 | Sensor | Quantity | Placement | Why here |
 |---|---|---|---|

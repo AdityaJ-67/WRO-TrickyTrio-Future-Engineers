@@ -281,6 +281,10 @@ GP12 and GP13. That fault would have worked on the bench and destroyed the
 microcontroller days later, which is the hardest kind of fault to diagnose because it
 looks like a software bug.
 
+### Sensor Placement
+
+<img src="sensor-placement.svg" width="620">
+
 ### Distance and Environmental Sensing
 
 Four VL53L0X time of flight sensors sit across the front and back of the chassis rather
