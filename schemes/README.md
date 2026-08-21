@@ -1,16 +1,5 @@
 # Electrical Components and Wiring
 
-Schematics, the full connection list, and the reasoning behind each part choice.
-
-**Files in this folder**
-
-| File | Contents |
-|---|---|
-| `circuit_image.svg` | Full schematic |
-| `Wiring_image.png` | Physical wiring layout |
-| `Main Electrical Components.xlsx` | Parts list with sourcing |
-| `README.md` | This document |
-
 ## Contents
 
 1. [System Architecture](#system-architecture)
@@ -63,11 +52,6 @@ is above hearing, so the motor does not whine.
 **Odometry.** The GA12-N20's encoder produces thousands of pulses per minute. The Pico
 counts every one on a hardware interrupt, so pulses are never dropped even while the
 main loop is busy elsewhere.
-
-**Safety.** Because the Pico owns the motor, it can stop the robot without asking the
-Pi. If no command arrives for 500 ms, meaning the Pi has crashed or the cable has come
-loose, the watchdog stops the robot. This is the single most important reason the
-architecture is split in two.
 
 ---
 
