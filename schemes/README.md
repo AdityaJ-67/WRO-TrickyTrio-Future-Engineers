@@ -289,9 +289,14 @@ looks like a software bug.
 
 Four VL53L0X time of flight sensors sit across the front and back of the chassis rather
 than one, so the robot gets several simultaneous readings across its field of travel
-instead of a single point measurement. The two side sensors are angled at 45 degrees
-rather than straight out, so they watch the forward diagonals and see an approaching
-corner while there is still room to react.
+instead of a single point measurement.
+
+The front of the chassis is a trapezoid, and its three faces each carry one sensor
+mounted perpendicular to that face. That geometry is what produces the 0 and plus or
+minus 45 degree angles directly, with no brackets or shims, and a sensor sitting flat
+against a flat face aligns far more repeatably than one held at an angle. The two
+angled sensors therefore watch the forward diagonals and see an approaching corner
+while there is still room to react.
 
 All VL53L0X units share the same default I2C address, and so does the TCS34725, which
 is a problem the moment you want more than one on a bus. Rather than reflashing each

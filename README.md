@@ -524,6 +524,13 @@ ceramic capacitor across the motor terminals to suppress brush noise.
 | BNO085 | 1 | Centre, mounted flat | Heading for turn completion and straight line hold |
 | TCS34725 | 1 | Underside, 5 to 10 mm above the mat | Corner line detection |
 
+**The nose is a trapezoid**, and that shape exists to serve the sensors. Its three
+faces each carry one distance sensor mounted perpendicular to that face, which is what
+produces the 0 and plus or minus 45 degree angles without needing any brackets or
+shims. A sensor sitting flat against a flat face is also far easier to align
+repeatably than one held at an angle, and alignment matters because the readings are
+compared against each other.
+
 **Why 45 degrees and not 90?** This is the placement decision we spent longest on.
 Sensors pointing straight out to the sides tell you the lane width, but they only see a
 corner once you are already level with it, which is too late to plan a turn. At 45
