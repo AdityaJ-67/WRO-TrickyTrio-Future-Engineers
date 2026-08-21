@@ -25,10 +25,16 @@
 
 | | Who we are |
 |---|---|
-| <img src="t-photos/aditya.jpg" width="120"> | **Aditya Juneja**<br><br>Grade 10. Interested in computer science and robotics, and the part of engineering where a plan on paper turns into something that actually moves. Outside of this, football and track and field, and picking up whatever new thing looks worth learning. |
-| <img src="t-photos/ishayu.jpg" width="120"> | **Ishayu Datta**<br><br>Grade 10. Interested in engineering and robotics, and in understanding why a design works rather than just that it does. Outside of this, swimming and playing guitar. |
-| <img src="t-photos/sarjas.jpg" width="120"> | **Sarjas Gauhar Singh**<br><br>Grade 10. Interested in robotics and computer science, and in the hands-on side of building. Outside of this, guitar and playing in bands, and football. |
-| <img src="t-photos/coach.jpg" width="120"> | **Coach**<br><br>*To be filled in.* |
+| <!-- TODO: photo --> | **Aditya Juneja**<br><br>A tenth grader with a long standing interest in computer science and robotics, Aditya was drawn to this project by the part of engineering where a plan on paper turns into something that actually moves. Away from the workshop he plays football, competes in track and field, and will usually be found teaching himself something new. |
+| <!-- TODO: photo --> | **Ishayu Datta**<br><br>Ishayu is in tenth grade and came to the team through an interest in engineering, particularly in understanding why a design works rather than simply accepting that it does. Outside school he swims and plays guitar. |
+| <!-- TODO: photo --> | **Sarjas Gauhar Singh**<br><br>Robotics and computer science are what pulled Sarjas into the project, though the hands on building is the part he enjoys most. Also in tenth grade, he plays guitar in bands and plays football. |
+| <!-- TODO: photo --> | **Coach**<br><br>*To be filled in.* |
+
+<p align="center">
+  <img src="t-photos/t_photo.jpeg" width="44%">
+  &nbsp;
+  <img src="t-photos/funny_t_photo.jpeg" width="44%">
+</p>
 
 **Country:** India &nbsp;&nbsp;&middot;&nbsp;&nbsp; **Team photos:** [`t-photos/`](t-photos/)
 
@@ -98,7 +104,7 @@ reason about under pressure.
 
 ### Raspberry Pi 3 Model B
 
-<img src="v-photos/Components/pi3.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/pi3.jpg -->
 
 **What it does.** Runs the camera and everything that needs to think: the vision
 pipeline that finds traffic signs and parking markers, the navigation engine that
@@ -119,7 +125,7 @@ none of which a microcontroller has.
 
 ### Raspberry Pi Pico 2 W
 
-<img src="v-photos/Components/pico.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/pico.jpg -->
 
 **What it does.** Runs everything with a deadline: the motor, the steering servo, the
 wheel encoder and all six sensors. It also holds the safety watchdog, which stops the
@@ -138,7 +144,7 @@ robot if the Pi goes quiet for half a second.
 
 ### Camera Module 3
 
-<img src="v-photos/Components/camera.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/camera.jpg -->
 
 **What it does.** The only sensor that can tell red from green, and the only one that
 sees far enough ahead to plan a manoeuvre rather than react to one. It also finds the
@@ -157,7 +163,7 @@ magenta parking markers and the black wall.
 
 ### GA12-N20 Gear Motor with Encoder
 
-<img src="v-photos/Components/motor.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/motor.jpg -->
 
 **What it does.** Single drive motor on the rear axle. The built in encoder is the
 important part: it lets us measure how far the wheels have actually turned, rather than
@@ -176,7 +182,7 @@ stuck.
 
 ### MG90S Servo
 
-<img src="v-photos/Components/servo.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/servo.jpg -->
 
 **What it does.** Turns the front wheels through the Ackermann linkage. Metal geared,
 so the gear train survives clipping a wall, which is what destroys plastic geared
@@ -194,7 +200,7 @@ servos.
 
 ### DRV8833 Motor Driver
 
-<img src="v-photos/Components/drv8833.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/drv8833.jpg -->
 
 **What it does.** Sits between the Pico and the motor. The Pico's pins can supply a few
 milliamps; the motor needs hundreds. The driver takes a logic level signal and switches
@@ -211,7 +217,7 @@ the battery voltage across the motor, and it controls direction as well as speed
 
 ### VL53L0X Time of Flight Sensor
 
-<img src="v-photos/Components/vl53l0x.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/vl53l0x.jpg -->
 
 **What it does.** Four of these measure distance by timing a laser pulse. One faces
 forward for corner detection, two face the forward diagonals for lane position, and one
@@ -231,7 +237,7 @@ camera they work regardless of colour.
 
 ### TCA9548A I2C Multiplexer
 
-<img src="v-photos/Components/tca9548a.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/tca9548a.jpg -->
 
 **What it does.** Solves a specific problem: every VL53L0X has the same fixed I2C
 address, and so does the colour sensor. Put two on one bus and both answer at once. The
@@ -248,7 +254,7 @@ multiplexer connects one channel at a time, so each sensor gets the bus to itsel
 
 ### BNO085 IMU
 
-<img src="v-photos/Components/bno085.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/bno085.jpg -->
 
 **What it does.** Tells us which way the robot is pointing. This is how we know a
 90 degree turn is finished, and how we hold a straight line between corners. It runs
@@ -267,7 +273,7 @@ raw values to filter ourselves.
 
 ### TCS34725 Colour Sensor
 
-<img src="v-photos/Components/tcs34725.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/tcs34725.jpg -->
 
 **What it does.** Reads the colour of the mat directly underneath the car, which is how
 we detect the orange and blue corner lines. Its built in infrared filter is why it stays
@@ -287,7 +293,7 @@ accurate while four infrared distance sensors are firing next to it.
 
 ### Mini560 Buck Converter
 
-<img src="v-photos/Components/mini560.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/mini560.jpg -->
 
 **What it does.** Steps the battery voltage down to a steady 5 V for the Pi, the Pico
 and the servo. A buck converter rather than a linear regulator because it wastes far
@@ -303,7 +309,7 @@ less energy as heat, which matters when the Pi alone can draw over two amps.
 
 ### Battery
 
-<img src="v-photos/Components/battery.jpg" width="200">
+<!-- TODO: photo -> v-photos/Components/battery.jpg -->
 
 **What it does.** Powers everything. Chosen for a high discharge rating, since the peak
 draw when the servo hits full lock while the motor is accelerating is several times the
@@ -450,6 +456,18 @@ its own without reprinting the whole car.
 | Front upper | <img src="models/body/front_top/front_top_image.png" width="150"> | [`front top.stl`](models/body/front_top/front%20top.stl) |
 | Rear lower | <img src="models/body/back_down/back_down_image.png" width="150"> | [`back down.stl`](models/body/back_down/back%20down.stl) |
 | Rear upper | <!-- TODO: add back_top image and STL --> *to be added* | [`back_top/`](models/body/back_top/) |
+
+### Camera Mount
+
+<img src="models/body/camera_mount/cam_mount_image.png" width="320">
+
+Holds the camera at the front of the car, above the chassis. Height is the point of
+this part: the further up the camera sits, the earlier it sees a traffic sign and the
+more room the robot has to plan a way around it. The mount is rigid because the
+distance estimate depends on how tall a sign appears in the frame, so a camera that
+sags or vibrates reports the wrong range.
+
+[`camera_mount.stl`](models/body/camera_mount/camera_mount.stl)
 
 ### Battery Mount
 
