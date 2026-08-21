@@ -83,19 +83,44 @@ The TCS34725 exists specifically so color detection doesn't depend entirely on t
 The Camera Module 3 is the primary visual sensor, feeding the Pi 5's computer-vision pipeline. Because Camera Module 3 uses a 15-pin FPC connector while the Pi 5's CSI ports are the newer 22-pin small-pitch style, it needs the correct 15-to-22 pin adapter cable rather than the cable the camera ships with for older Pi boards.
 
 
+## Robot Dimensions
+
+Physical facts every clearance calculation depends on. Measured, not assumed.
+
+| Value | Measurement |
+|---|---|
+| Chassis width | 10.5 cm |
+| Chassis length | 15.0 cm |
+| WRO signal block footprint | 5.0 cm |
+| Safety margin used in navigation | 3.0 cm |
+| **Lateral clearance target** | **10.75 cm** (half of us + half a block + margin) |
+
+The clearance figure is what `TARGET_OFFSET` in `navigation_engine.py` is tuned
+to approximate: the gap wanted between the robot's centreline and a pillar's
+centre while passing it. If the chassis changes, retune that constant.
+
 ## Master Connection & PCB Routing List
+
+> This list is for the **Raspberry Pi 3**. The header pins referenced below (2/4 = 5V,
+> 6 = GND, 8 = GPIO14/TXD, 10 = GPIO15/RXD) are identical across all 40-pin Pi boards,
+> so only the labels changed. The architecture sections above still describe a Pi 5.
 
 ### 1. Power Distribution Bus
 - Battery Positive (+) ➡️ Mini560 IN(+) AND DRV8833 VM (Motor Power Input).
 - Battery Negative (-) ➡️ Mini560 IN(-) (Establishes the main system GND rail).
-- Mini560 OUT(+) [5V Rail] ➡️ Pico 2 W Pin 39 (VSYS) AND Pi 5 Pin 2/4 (5V) AND MG90S Servo Red (VCC) AND N20 Encoder VCC.
-- Mini560 OUT(-) [GND Plane] ➡️ Pico Pin 38 (GND) AND Pi 5 Pin 6 (GND) AND Servo Brown (GND) AND Encoder GND AND DRV8833 GND. Flood the entire bottom layer of the PCB as a solid ground plane to connect these seamlessly.
-- Pico Pin 36 (3V3 OUT Rail) ➡️ VCC / VIN pins of the TCA9548A, BNO085, TCS34725, and all 4x VL53L0X sensors.
+- Mini560 OUT(+) [5V Rail] ➡️ Pico 2 W Pin 39 (VSYS) AND Pi 3 Pin 2/4 (5V) AND MG90S Servo Red (VCC).
+  - **The N20 encoder must NOT sit on this rail.** Its A/B outputs swing to whatever voltage supplies it, and the RP2350 GPIOs are not 5V tolerant (absolute max 3.3V + 0.3V). Encoder VCC goes to the 3V3 rail below.
+- Mini560 OUT(-) [GND Plane] ➡️ Pico Pin 38 (GND) AND Pi 3 Pin 6 (GND) AND Servo Brown (GND) AND Encoder GND AND DRV8833 GND. Flood the entire bottom layer of the PCB as a solid ground plane to connect these seamlessly.
+- Pico Pin 36 (3V3 OUT Rail) ➡️ VCC / VIN pins of the TCA9548A, BNO085, TCS34725, and all 4x VL53L0X sensors, **plus N20 Encoder VCC and DRV8833 nSLEEP**.
+  - Encoder VCC here, not on 5V, so the A/B outputs are 3.3V logic. It draws a few mA.
+  - nSLEEP (labelled SLP or EEP on most breakouts) must be high or the driver stays asleep and the motor does nothing while the code reads perfectly correct. Some breakouts pull it high on-board — check yours before adding the trace.
+- **Decoupling:** 100 µF electrolytic across DRV8833 VM/GND, placed at the driver. Motor current spikes otherwise drag the shared 5V rail down far enough to reset the Pico mid-run.
 
 ### 2. High-Level Logic Interconnects
-- Pico Pin 1 (GP0 / TX) ➡️ Pi 5 GPIO Pin 10 (RXD0 / GPIO 15)
-- Pico Pin 2 (GP1 / RX) ➡️ Pi 5 GPIO Pin 8 (TXD0 / GPIO 14)
-- Camera Module 3 ➡️ Connects directly to Pi 5 CAM0 or CAM1 ports via a dedicated 15-to-22 pin flexible ribbon cable. (Does not wire to the Pico 2 W.)
+- Pico Pin 1 (GP0 / TX) ➡️ Pi 3 GPIO Pin 10 (RXD0 / GPIO 15)
+- Pico Pin 2 (GP1 / RX) ➡️ Pi 3 GPIO Pin 8 (TXD0 / GPIO 14)
+  - Pi 3 only: `/dev/serial0` defaults to the mini-UART, whose baud rate drifts with CPU load and corrupts bytes once the vision code is running. Set `enable_uart=1` and `dtoverlay=disable-bt` in config.txt, then confirm `ls -l /dev/serial0` resolves to **ttyAMA0**, not ttyS0.
+- Camera Module 3 ➡️ Connects directly to the Pi 3's single 15-pin CSI port via a standard 15-pin ribbon cable — the 15-to-22 pin cable is for the Pi 5's narrower connectors and does not fit a Pi 3. (Does not wire to the Pico 2 W.)
 
 ### 3. Sensor I2C Network
 - Pico Pin 6 (GP4 / SDA) ➡️ TCA9548A SDA (add a 4.7kΩ pull-up resistor to the 3.3V trace).
@@ -111,8 +136,11 @@ The Camera Module 3 is the primary visual sensor, feeding the Pi 5's computer-vi
 ### 4. Drivetrain Control (Motors, Encoders, & Servos)
 - Pico Pin 29 (GP22) ➡️ MG90S Servo Orange (Signal Pin) — bypasses the driver entirely.
 - Pico Pin 11 (GP8) ➡️ DRV8833 IN1 (Motor Drive Forward PWM)
-- Pico Pin 12 (GP9) ➡️ DRV8833 IN2 (Motor Drive Reverse Pin)
+- Pico Pin 12 (GP9) ➡️ DRV8833 IN2 (held low for forward; carries the PWM for reverse)
+  - A DRV8833 has no dedicated direction pin. Whichever of IN1/IN2 carries the PWM is the direction, and the duty on it is the speed. GP8 and GP9 are the two halves of PWM slice 4, so they share a frequency — which suits reverse fine, since both want the same 20 kHz.
 - DRV8833 OUT1 / OUT2 ➡️ GA12-N20 Motor Pin 1 & Pin 2 (Motor Power Leads)
+  - Solder a 0.1 µF ceramic across the two motor terminals. Brush noise otherwise couples into the encoder lines and shows up as phantom counts that appear only under motor power.
 - GA12-N20 Motor Pin 5 (Encoder A) ➡️ Pico Pin 16 (GP12)
 - GA12-N20 Motor Pin 6 (Encoder B) ➡️ Pico Pin 17 (GP13)
+  - Route both encoder traces away from the thick motor leads, for the same reason.
 
