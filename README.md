@@ -34,18 +34,13 @@
 
 ### What We Learned
 
-None of us had built a robot at this level before, and most of what we learned came
-from things not working the first time.
-
 **CAD and 3D design.** We designed the chassis, the steering assembly, the motor mount,
 the battery holder and the wheels ourselves in Fusion 360, then printed and reprinted
 them. Learning to design a part that can actually be printed, with the right tolerances
 for a bearing or a screw, took several attempts per part.
 
 **Electrical wiring and soldering.** We went from loose jumper wires to a planned
-connection list and a proper PCB layout. Along the way we learned to read a datasheet
-for voltage limits rather than assuming, why grounds have to be common, and why a
-decoupling capacitor sits next to the thing it protects rather than anywhere convenient.
+connection list and a proper PCB layout.
 
 **Software architecture.** Writing code that a teammate can read months later turned
 out to be a separate skill from writing code that works. We ended up splitting the
