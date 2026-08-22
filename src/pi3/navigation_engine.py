@@ -60,6 +60,13 @@ STEERING_MAX_CHANGE_DEG = 6
 # so they watch the forward diagonals. Comparing the two tells us which side of
 # the lane we are on without ever needing to know how wide the lane is.
 LANE_GAIN = 22.0            # degrees of steering per unit of lane offset
+
+# Lane position from the camera. Preferred over the distance sensors because it
+# arrives with the frame instead of at the end of a 132 ms sensor sweep, and
+# because the camera sees ahead, so it starts correcting for a curve before the
+# robot reaches it. The sensors remain the fallback when no wall is in view.
+WALL_BALANCE_GAIN = 26.0
+WALL_BAND_MIN_PIXELS = 60   # below this there is not enough wall to steer by
 LANE_DEAD_ZONE = 0.08       # closer to centre than this counts as centred
 LANE_MAX_VALID_MM = 2000    # a VL53L0X reports ~8190 mm when it sees nothing
 
@@ -202,17 +209,47 @@ def lane_offset(left_mm, right_mm):
     return 0.0 if abs(offset) < LANE_DEAD_ZONE else offset
 
 
-def compute_lane_steering(left_mm, right_mm):
-    """Steer back towards the middle of the lane. Straight if we cannot tell."""
+def wall_balance(walls):
+    """Lane offset from the camera, or None when there is too little wall in view.
+
+    Positive means more wall on the left, so the robot has drifted left.
+    """
+    if not walls:
+        return None
+    if walls["left"] + walls["right"] < WALL_BAND_MIN_PIXELS:
+        return None
+    balance = walls["balance"]
+    return 0.0 if abs(balance) < LANE_DEAD_ZONE else balance
+
+
+def compute_lane_steering(left_mm, right_mm, walls=None):
+    """Steer back towards the middle of the lane.
+
+    Two independent measurements of the same thing, tried in order of freshness.
+    The camera answer is current and looks ahead; the distance sensors are
+    accurate but up to a sweep old by the time they are used. Falling back
+    rather than averaging keeps the behaviour predictable when one disagrees.
+    """
+    balance = wall_balance(walls)
+    if balance is not None:
+        return (max(-MAX_STEERING_DEG,
+                    min(MAX_STEERING_DEG, balance * WALL_BALANCE_GAIN)), balance)
+
     offset = lane_offset(left_mm, right_mm)
     if offset is None:
         return float(STRAIGHT_STEERING_DEG), 0.0
     return max(-MAX_STEERING_DEG, min(MAX_STEERING_DEG, offset * LANE_GAIN)), offset
 
 
-def compute_corner_steering(left_mm, right_mm, previous_steering):
-    """Full lock towards the outside of the corner - the side with more room."""
-    offset = lane_offset(left_mm, right_mm)
+def compute_corner_steering(left_mm, right_mm, previous_steering, walls=None):
+    """Full lock towards the outside of the corner - the side with more room.
+
+    The camera is asked first for the same reason as lane keeping: mid corner
+    the geometry is changing fast, and a stale reading points the wrong way.
+    """
+    offset = wall_balance(walls)
+    if offset is None:
+        offset = lane_offset(left_mm, right_mm)
     if offset is None:
         # No side readings mid-corner: hold the turn already in progress rather
         # than straightening up into the wall we are turning away from.
@@ -236,7 +273,7 @@ def compute_parking_steering(parking):
 
 
 def compute_steering(pillar, previous_steering, mode=None,
-                     left_mm=None, right_mm=None, parking=None):
+                     left_mm=None, right_mm=None, parking=None, walls=None):
     """Steering angle for this frame, in degrees.
 
     Three laws, chosen by mode. Cornering turns towards open space; recentring
@@ -248,13 +285,14 @@ def compute_steering(pillar, previous_steering, mode=None,
         # Steer for the slot when we can see it; hold the lane while hunting.
         target = compute_parking_steering(parking)
         if target is None:
-            target, lane = compute_lane_steering(left_mm, right_mm)
+            target, lane = compute_lane_steering(left_mm, right_mm, walls)
         offset = target_offset = 0.0
     elif mode == MODE_TURN_CORNER:
-        target, lane = compute_corner_steering(left_mm, right_mm, previous_steering)
+        target, lane = compute_corner_steering(left_mm, right_mm,
+                                               previous_steering, walls)
         offset = target_offset = 0.0
     elif mode == MODE_RECENTER or pillar is None:
-        target, lane = compute_lane_steering(left_mm, right_mm)
+        target, lane = compute_lane_steering(left_mm, right_mm, walls)
         offset = target_offset = 0.0
     else:
         colour = pillar["colour"]
@@ -365,10 +403,11 @@ def compute_navigation(vision_data, robot_state, mode=None, mission=None,
         pillar = None       # not the obstacle round: coloured things are scenery
 
     parking = vision_data.get("parking") if isinstance(vision_data, dict) else None
+    walls = vision_data.get("walls") if isinstance(vision_data, dict) else None
     steering, offset, target_offset, lane = compute_steering(
         pillar, _previous_steering, mode,
         robot_state.get("left_distance"), robot_state.get("right_distance"),
-        parking)
+        parking, walls)
 
     speed, speed_mode, speed_reason = compute_speed(
         front_distance, _previous_mode,
@@ -642,6 +681,41 @@ def selftest():
     for _ in range(12):
         legacy_call = compute_navigation({"pillars": [pillar(COLOUR_RED, 415)]}, far_state)
     assert legacy_call["steering"] > 0 and legacy_call["lane_offset"] == 0.0
+
+    # --- lane position from the camera ---
+    hug_left = {"left": 900, "right": 100, "balance": 0.8}
+    hug_right = {"left": 100, "right": 900, "balance": -0.8}
+    centred_walls = {"left": 500, "right": 500, "balance": 0.0}
+    no_wall = {"left": 5, "right": 5, "balance": 0.0}
+
+    assert wall_balance(hug_left) > 0            # drifted left
+    assert wall_balance(hug_right) < 0
+    assert wall_balance(centred_walls) == 0.0
+    assert wall_balance(no_wall) is None         # too little wall to trust
+    assert wall_balance(None) is None
+    # jitter inside the dead zone must not move the wheels
+    assert wall_balance({"left": 510, "right": 490, "balance": 0.02}) == 0.0
+
+    # drifted left means steer right, and the reverse
+    assert compute_lane_steering(None, None, hug_left)[0] > 0
+    assert compute_lane_steering(None, None, hug_right)[0] < 0
+    for walls in (hug_left, hug_right):
+        assert abs(compute_lane_steering(None, None, walls)[0]) <= MAX_STEERING_DEG
+
+    # the camera is preferred over the distance sensors when both are available
+    disagreeing = compute_lane_steering(900, 100, hug_left)[0]   # ToF says left
+    assert disagreeing > 0, disagreeing                          # camera wins
+
+    # and the sensors are used when there is no wall in view
+    assert compute_lane_steering(400, 600, no_wall)[0] > 0
+    assert compute_lane_steering(None, None, None)[0] == STRAIGHT_STEERING_DEG
+
+    # end to end, through the whole engine
+    reset()
+    for _ in range(14):
+        camera_lane = compute_navigation(
+            {"pillars": [], "walls": hug_left}, {"front_distance": far})
+    assert camera_lane["steering"] > 0, camera_lane
 
     # --- missions ---
     red_centred = [pillar(COLOUR_RED, CAMERA_CENTRE_X)]

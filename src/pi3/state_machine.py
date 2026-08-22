@@ -44,6 +44,11 @@ PASS_DISTANCE_MM = 350          # closer than this and we are committed to the p
 # --- Corners ----------------------------------------------------------------
 CORNER_TRIGGER_MM = 600         # wall this close ahead means a corner is due
 CAMERA_CORNER_MM = 700          # the camera sees the wall before the ToF confirms it
+# A corner announces itself by one side wall running out. This fires while the
+# robot is still approaching, where a front distance reading only fires once it
+# is nearly there.
+WALL_COLLAPSE_BALANCE = 0.75    # this one sided means one wall has ended
+WALL_COLLAPSE_MIN_PIXELS = 200  # ...and enough wall remains on the other side
 CORNER_ANGLE_DEG = 80           # heading change that counts as the turn done
 CORNERS_PER_LAP = 4
 LAPS_PER_RUN = 3
@@ -390,6 +395,11 @@ def detect_events(context):
     elif Event.CORNER_AHEAD in events:
         events.append(Event.CORNER_DETECTED)        # no ToF, trust the camera
 
+    walls = context["walls"]
+    if walls and walls["left"] + walls["right"] >= WALL_COLLAPSE_MIN_PIXELS:
+        if abs(walls["balance"]) >= WALL_COLLAPSE_BALANCE:
+            events.append(Event.CORNER_AHEAD)
+
     lane = context["lane_offset"]
     if lane is not None and abs(lane) < LANE_CENTRED_BAND:
         events.append(Event.LANE_CENTRED)
@@ -517,6 +527,8 @@ class StateMachine:
                               if isinstance(vision_data, dict) else None),
             "parking": (vision_data.get("parking")
                         if isinstance(vision_data, dict) else None),
+            "walls": (vision_data.get("walls")
+                      if isinstance(vision_data, dict) else None),
             "rear_distance": robot_state.get("rear_distance"),
             "lane_offset": lane,
             "heading": self._heading,
@@ -621,7 +633,7 @@ def selftest():
     base = {"now": 0.0, "state": State.FOLLOW_COURSE, "time_in_state": 0.0,
             "started": False, "pillar": None, "pillar_gone_for": 0.0,
             "front_distance": 900, "wall_distance": None, "lane_offset": None,
-            "parking": None, "rear_distance": None,
+            "parking": None, "walls": None, "rear_distance": None,
             "heading": 0.0, "corner_start_heading": None,
             "corners_turned": 0, "recovery_attempts": 0, "stuck": False}
 
@@ -647,6 +659,15 @@ def selftest():
     assert Event.LANE_CENTRED not in events_for(lane_offset=0.5)
     assert Event.LANE_CENTRED not in events_for(lane_offset=None)   # cannot tell
     assert Event.CORNER_AHEAD in events_for(wall_distance=CAMERA_CORNER_MM - 1)
+    # a corner also announces itself when one side wall runs out
+    assert Event.CORNER_AHEAD in events_for(
+        walls={"left": 900, "right": 20, "balance": 0.95})
+    # ...but a wall on both sides is a straight, not a corner
+    assert Event.CORNER_AHEAD not in events_for(
+        walls={"left": 500, "right": 500, "balance": 0.0})
+    # ...and neither is an empty frame, however one sided the balance looks
+    assert Event.CORNER_AHEAD not in events_for(
+        walls={"left": 30, "right": 0, "balance": 1.0})
     # the camera alone corners when the front ToF is dead...
     blind = events_for(front_distance=None, wall_distance=CAMERA_CORNER_MM - 1)
     assert Event.CORNER_DETECTED in blind

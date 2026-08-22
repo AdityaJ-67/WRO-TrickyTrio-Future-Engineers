@@ -37,6 +37,11 @@ MIN_RATIO, MAX_RATIO = 0.15, 2.00   # w/h. Blocks are taller than wide, even cli
 MIN_FILL = 0.45         # contour area / bounding box area. A solid block mostly fills
                         # its box; scattered glare or carpet texture does not.
 WALL_MIN_AREA = 600     # the wall is a big object, so it can afford a high floor
+
+# Side bands used to judge lane position from the camera. Only the outer thirds
+# of the frame are counted, because the middle contains the wall ahead and any
+# traffic signs, neither of which say anything about where we sit across the lane.
+WALL_BAND_WIDTH = 0.30  # fraction of the processed width each band covers
 CENTRE_DEADBAND = 0.12  # |offset| below this counts as straight ahead
 
 BLOCK_HEIGHT_CM = 10.0  # WRO signal block
@@ -98,6 +103,29 @@ def find_block(mask):
             continue
         best, best_area = (x, y, w, h), area
     return best
+
+
+def wall_bands(wall_mask):
+    """How much wall fills each side of the frame, and the balance between them.
+
+    Returns (left, right, balance). Balance runs -1 to +1, and positive means
+    more wall on the left, so the robot has drifted towards the left wall and
+    should steer right.
+
+    This is a lane position measurement taken from the camera rather than from
+    the distance sensors. It costs one pixel count per side, it arrives at frame
+    rate rather than at the sensor sweep rate, and because the camera looks
+    ahead it starts responding to a curve before the robot reaches it.
+
+    Dividing by the total is what makes it independent of resolution and of how
+    brightly the walls happen to be lit.
+    """
+    height, width = wall_mask.shape
+    band = int(width * WALL_BAND_WIDTH)
+    left = cv2.countNonZero(wall_mask[:, :band])
+    right = cv2.countNonZero(wall_mask[:, width - band:])
+    total = left + right
+    return left, right, 0.0 if total == 0 else (left - right) / total
 
 
 def find_wall(mask):
@@ -192,10 +220,11 @@ def describe(box, scale, roi_y, width, real_height_cm):
 def detect(frame):
     """Everything visible this frame.
 
-    Returns (seen, masks, open_space):
-      seen       name -> dict of box/cx/cy/offset/position/distance
-      masks      name -> binary mask, for the mask view
-      open_space (left, right) wall pixel counts, i.e. which side is blocked
+    Returns (seen, masks, walls):
+      seen   name -> dict of box/cx/cy/offset/position/distance
+      masks  name -> binary mask, for the mask view
+      walls  dict of left/right wall pixels in the side bands, and the balance
+             between them, which is how lane position is judged from the camera
     """
     height, width = frame.shape[:2]
     roi_y = int(height * ROI_TOP)
@@ -222,10 +251,9 @@ def detect(frame):
     if parking:
         seen["PARKING"] = parking
 
-    half = PROC_WIDTH // 2
-    open_space = (cv2.countNonZero(masks["WALL"][:, :half]),
-                  cv2.countNonZero(masks["WALL"][:, half:]))
-    return seen, masks, open_space
+    left, right, balance = wall_bands(masks["WALL"])
+    walls = {"left": left, "right": right, "balance": balance}
+    return seen, masks, walls
 
 
 def draw(frame, name, info):
@@ -267,7 +295,7 @@ def main():
 
         height, width = frame.shape[:2]
         roi_y = int(height * ROI_TOP)
-        seen, masks, open_space = detect(frame)
+        seen, masks, walls = detect(frame)
 
         if show_mask:
             combined = (masks["RED"] | masks["GREEN"] | masks["WALL"]
@@ -280,8 +308,13 @@ def main():
 
         cv2.line(frame, (width // 2, roi_y), (width // 2, height), (200, 200, 200), 1)
         cv2.line(frame, (0, roi_y), (width, roi_y), (200, 200, 200), 1)
-        cv2.putText(frame, f"open L{open_space[0]} R{open_space[1]}", (10, 25),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(frame, "wall L%d R%d  balance %+.2f"
+                    % (walls["left"], walls["right"], walls["balance"]),
+                    (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        # a bar showing which way the wall balance is pushing the steering
+        centre = width // 2
+        cv2.line(frame, (centre, 40), (centre + int(walls["balance"] * 120), 40),
+                 (255, 200, 0), 6)
 
         cv2.imshow("vision test", frame)
         key = cv2.waitKey(1) & 0xFF
@@ -302,7 +335,7 @@ def selftest():
     cv2.rectangle(frame, (420, 300), (470, 430), (0, 255, 0), -1)  # green, right, far
     cv2.rectangle(frame, (300, 300), (308, 306), (0, 0, 255), -1)  # speckle, ignored
 
-    seen, masks, open_space = detect(frame)
+    seen, masks, walls = detect(frame)
 
     # all three at once - that is the whole point
     assert set(seen) == {"RED", "GREEN", "WALL"}, sorted(seen)
@@ -315,8 +348,28 @@ def selftest():
     assert seen["RED"]["distance"] < seen["GREEN"]["distance"]
     assert 20 < seen["RED"]["distance"] < 40, seen["RED"]["distance"]
 
-    # wall spans the frame, so neither side is clearly more open
-    assert abs(open_space[0] - open_space[1]) < open_space[0] * 0.2, open_space
+    # the wall spans the frame evenly, so the balance is near zero
+    assert abs(walls["balance"]) < 0.2, walls
+
+    # --- lane position from the camera ---
+    # wall only down the left side: we have drifted left, so steer right
+    left_hug = np.full((480, 640, 3), 150, np.uint8)
+    cv2.rectangle(left_hug, (0, 200), (120, 479), (25, 25, 25), -1)
+    assert detect(left_hug)[2]["balance"] > 0.8, detect(left_hug)[2]
+
+    # and the mirror image
+    right_hug = np.full((480, 640, 3), 150, np.uint8)
+    cv2.rectangle(right_hug, (519, 200), (639, 479), (25, 25, 25), -1)
+    assert detect(right_hug)[2]["balance"] < -0.8, detect(right_hug)[2]
+
+    # centred between two walls reads as balanced
+    centred = np.full((480, 640, 3), 150, np.uint8)
+    cv2.rectangle(centred, (0, 200), (90, 479), (25, 25, 25), -1)
+    cv2.rectangle(centred, (549, 200), (639, 479), (25, 25, 25), -1)
+    assert abs(detect(centred)[2]["balance"]) < 0.1, detect(centred)[2]
+
+    # no wall in view at all gives no signal rather than a wrong one
+    assert detect(np.full((480, 640, 3), 150, np.uint8))[2]["balance"] == 0.0
 
     # nothing but mat -> nothing seen
     empty, _, _ = detect(np.full((480, 640, 3), 150, np.uint8))

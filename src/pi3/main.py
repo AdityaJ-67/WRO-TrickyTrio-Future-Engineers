@@ -199,13 +199,14 @@ def main(dry_run=False, show=False, debug=False, start_delay=START_DELAY_S):
                 navigation_engine.CAMERA_CENTRE_X = width // 2
 
             # 2. see what is there, in the shape the rest of the stack wants
-            seen, _, _ = vision_test.detect(frame)
+            seen, _, walls = vision_test.detect(frame)
             # The wall is not a pillar, but the state machine uses it to see a
             # corner coming before the front ToF confirms it.
             vision = {"pillars": pillars_from_vision(seen),
                       "wall_distance": (seen["WALL"]["distance"] * CM_TO_MM
                                         if "WALL" in seen else None),
-                      "parking": seen.get("PARKING")}
+                      "parking": seen.get("PARKING"),
+                      "walls": walls}
 
             # 3-7. everything below can fail if the Pico link drops
             try:
@@ -317,7 +318,8 @@ def selftest():
     def one_frame(machine, pillars, robot_state, step=0.1, parking=None):
         """One pass of the real loop, in the real order, on a clock we control."""
         clock[0] += step
-        vision = {"pillars": pillars, "wall_distance": None, "parking": parking}
+        vision = {"pillars": pillars, "wall_distance": None,
+                  "parking": parking, "walls": None}
         mission = mission_manager.current_mission()["mission"]
         machine.mission = mission
         navigation = navigation_engine.compute_navigation(
@@ -357,7 +359,8 @@ def selftest():
         navigation_engine.MISSION_PARKING], parking_frame
 
     machine.state = state_machine.State.FINISHED
-    vision = {"pillars": pillars, "wall_distance": None, "parking": None}
+    vision = {"pillars": pillars, "wall_distance": None,
+              "parking": None, "walls": None}
     navigation = navigation_engine.compute_navigation(vision, clear)
     behaviour = machine.update(vision, clear, navigation, now=clock[0])
     assert navigation["speed"] > 0, navigation          # navigation wants to drive
