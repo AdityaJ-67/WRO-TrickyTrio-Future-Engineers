@@ -366,9 +366,6 @@ target, and tune the operating speed experimentally instead.
 | Measured turning radius at full lock | |
 -->
 
-**Why not two motors, one per side?** Explicitly forbidden by the rules. It would also
-have introduced differential error that our single encoder cannot see.
-
 ### Ackermann Steering
 
 <img src="models/front-steering/ackermann_image.png" width="380">
@@ -536,19 +533,6 @@ Sensors pointing straight out to the sides tell you the lane width, but they onl
 corner once you are already level with it, which is too late to plan a turn. At 45
 degrees they watch the forward diagonals, so an approaching inner wall shows up while
 there is still room to react.
-
-The cost of that choice is that a reading is no longer lateral clearance. A reading of
-D millimetres at 45 degrees means roughly 0.71 times D ahead and the same again to the
-side. That conversion is documented in the distance module, because anything that
-treats a diagonal reading as lateral clearance will drive the robot into a wall.
-
-Lane position then falls out of comparing the two diagonals against each other, which
-needs no knowledge of the lane width at all. More room on the right means the car has
-drifted left, so it steers right.
-
-**A failure point we designed around.** A VL53L0X reports roughly 8190 mm when it sees
-nothing at all. Fed into that comparison this looks like an enormously wide lane, so
-readings above 2000 mm are discarded rather than believed.
 
 ### Why a Multiplexer
 
