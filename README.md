@@ -518,8 +518,8 @@ ceramic capacitor across the motor terminals to suppress brush noise.
 | VL53L0X | 1 | Front, 0 degrees | Corner confirmation and collision avoidance |
 | VL53L0X | 2 | Plus and minus 45 degrees, flanking the camera | Lane position and corner geometry |
 | VL53L0X | 1 | Rear, 180 degrees | Parking and reversing clearance |
-| BNO085 | 1 | Centre, mounted flat | Heading for turn completion and straight line hold |
-| TCS34725 | 1 | Underside, 5 to 10 mm above the mat | Corner line detection |
+| BNO085 | 1 | Rear of centre, mounted flat | Heading for turn completion and straight line hold |
+| TCS34725 | 1 | Underside of the nose, below the camera mount | Corner line detection |
 
 **The nose is a trapezoid**, and that shape exists to serve the sensors. Its three
 faces each carry one distance sensor mounted perpendicular to that face, which is what
@@ -527,6 +527,17 @@ produces the 0 and plus or minus 45 degree angles without needing any brackets o
 shims. A sensor sitting flat against a flat face is also far easier to align
 repeatably than one held at an angle, and alignment matters because the readings are
 compared against each other.
+
+**The colour sensor sits at the very front, under the camera mount.** Putting it there
+rather than under the middle of the car means the robot crosses a corner line with its
+sensor before it crosses it with its wheels, which buys reaction time at exactly the
+moment it is needed. It also shares the camera mount, so both sensors move together if
+the mount is ever adjusted.
+
+**The IMU sits toward the rear.** Heading is a property of the whole vehicle rather than
+of a point on it, so a yaw reading is the same wherever the sensor is bolted. That frees
+the IMU to go wherever there is flat, rigid space, which on this chassis is behind the
+drive assembly, well away from the crowded nose.
 
 **Why 45 degrees and not 90?** This is the placement decision we spent longest on.
 Sensors pointing straight out to the sides tell you the lane width, but they only see a

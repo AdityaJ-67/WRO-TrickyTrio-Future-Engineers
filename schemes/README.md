@@ -313,9 +313,18 @@ accelerometer and gyroscope values to filter.
 
 The TCS34725 exists so that colour detection does not depend entirely on the camera. It
 gives a direct, low overhead reading that the Pico can act on quickly, while the camera
-handles the spatial side of track interpretation on the Pi. Its built in infrared
-filter is what keeps it stable while four infrared distance sensors are firing beside
-it.
+handles the spatial side of track interpretation on the Pi. Its built in infrared filter
+is what keeps it stable while four infrared distance sensors are firing beside it.
+
+It is mounted on the underside of the nose, directly below the camera mount. Sitting at
+the front rather than under the middle of the car means the sensor crosses a corner line
+before the wheels do, which gives the robot more time to react. Sharing the camera mount
+also means the two front facing sensors stay aligned with each other.
+
+The IMU, by contrast, sits toward the rear. Yaw is a property of the whole vehicle
+rather than of a point on it, so the heading reading is the same wherever the sensor is
+mounted. That let us put it where there was flat, rigid space, behind the drive assembly
+and away from the crowded nose.
 
 ### Vision System
 
