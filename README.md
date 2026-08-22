@@ -19,6 +19,25 @@
 
 ---
 
+## Documentation Map
+
+Detailed engineering documentation lives beside the work it describes.
+
+| Topic | Document |
+|---|---|
+| Mobility and mechanical design, torque reasoning, trade-offs | [`models/mechanical-design.md`](models/mechanical-design.md) |
+| Power budget, sensor selection and placement, calibration, failure points | [`schemes/power-and-sensors.md`](schemes/power-and-sensors.md) |
+| Software architecture, flowcharts, obstacle strategy, testing | [`src/software-architecture.md`](src/software-architecture.md) |
+| Constraints, trade-offs and risk analysis | [`other/engineering-journal/design-decisions.md`](other/engineering-journal/design-decisions.md) |
+| How the subsystems work together | [`other/engineering-journal/systems-thinking.md`](other/engineering-journal/systems-thinking.md) |
+| Every problem we hit and what we changed | [`other/engineering-journal/iteration-log.md`](other/engineering-journal/iteration-log.md) |
+| Test records and calibration measurements | [`other/engineering-journal/test-logs.md`](other/engineering-journal/test-logs.md) |
+| Building this robot from scratch | [`REPRODUCING.md`](REPRODUCING.md) |
+| Line by line code walkthrough | [`other/code-explained.md`](other/code-explained.md) |
+| Wiring and connection list | [`schemes/README.md`](schemes/README.md) |
+
+---
+
 ## 1. The Team
 
 <!-- TODO: add the photos to t-photos/ and check the filenames match -->

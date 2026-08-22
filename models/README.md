@@ -1,5 +1,8 @@
 # Models
 
+**Design reasoning, torque and speed calculations, trade-offs and iterations are in
+[mechanical-design.md](mechanical-design.md).**
+
 CAD source files and renders for every part we designed and fabricated ourselves.
 Organised by subsystem, one folder per part, each containing the model file and an
 image of it.

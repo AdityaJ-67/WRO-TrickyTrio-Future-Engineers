@@ -1,5 +1,8 @@
 # Source Code
 
+**Architecture, flowcharts, obstacle strategy and the testing process are in
+[software-architecture.md](software-architecture.md).**
+
 All software for the robot, split by the controller it runs on.
 
 | Folder | Board | Language |

@@ -1,6 +1,12 @@
 # Other
 
-Supporting material that does not belong in the code, model or schematic folders.
+Supporting material.
+
+| Item | Contents |
+|---|---|
+| [`engineering-journal/`](engineering-journal/) | Design decisions, systems thinking, iteration log, test logs |
+| [`code-explained.md`](code-explained.md) | Beginner level walkthrough of every source file |
+
 
 <!-- TODO: this folder is currently empty. Worth adding:
 

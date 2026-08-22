@@ -9,6 +9,7 @@ are actually assessing.
 
 | Document | Contents |
 |---|---|
+| [Systems Thinking](systems-thinking.md) | How the subsystems interact, and where they fought each other |
 | [Design Decisions](design-decisions.md) | The constraints we worked inside, the trade-offs we made, and what could go wrong |
 | [Obstacle Strategy](obstacle-strategy.md) | How the robot decides which side of a traffic sign to pass, and every edge case it handles |
 | [Iteration Log](iteration-log.md) | Every problem we hit, what actually caused it, and what we changed |
